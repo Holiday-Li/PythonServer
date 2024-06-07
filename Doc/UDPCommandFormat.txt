@@ -1,0 +1,48 @@
+UDP交互指令：
+	update_tc_info
+	功能：更新测试用例信息
+		当为自动化测试系统新增被测项目时，将对应的代码信息更新至数据库
+	指令格式：
+		update_tc_info -p [project_path]
+		# project_path为项目路径
+	返回信息：
+		Done - 成功
+		Error - 失败
+	
+	update_tc_code
+	功能：
+		更新测试用例代码；
+		当指定commit_id时，将测试代码更新至指定commit id
+		否则更新至最新版本
+	指令格式：update_tc_code -p project_id -c [commit_id]
+	返回信息：
+		task_id
+			-1 ：异常
+			其他正整数：task_id
+
+	build_and_download
+	功能：发起任务编译、下载任务
+		任务会查询对应的项目、模块、子ID等信息，生成对应的main.c并进行编译及下载功能
+		后续任务状态课
+	指令格式：build_and_download -p [project_id] -m [module_id] -s [sub_id]
+	返回信息：
+		task_id
+			-1 ：异常
+			其他正整数：task_id
+
+	get_task_status
+	功能：获取任务运行状态
+	指令格式：get_task_status -t [task_id]
+	返回信息：
+		None - 没有对应的任务
+		Running - 任务正在运行中
+		Timeout - 执行超时
+		Done - 任务运行完成
+		Error - 任务异常
+
+	exit
+	功能： 退出Python程序
+	指令格式：exit
+	返回信息：
+		Done - 成功退出Python程序
+		Running - 仍然存在运行中的任务，需要再次发送exit指令
