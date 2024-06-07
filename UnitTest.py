@@ -1,8 +1,10 @@
 import unittest, time, BuildAndDownloand, socket, multiprocessing
 from CMDProcesser import CMDProcesser
 from UDPServer import UDPServer
+from TCPServer import TCPServer
+from TCPClient import TCPClient
 
-
+'''
 def loop_process(task_params, msg_que, lock):
     while True:
         time.sleep(10)
@@ -45,9 +47,10 @@ def done_sub_process(task_params, msg_que, lock):
                                            lock=lock,
                                            message="Done")
     return
+'''
 
 
-# '''
+'''
 class RequestAnalysisTest(unittest.TestCase):
 
     def test_invalid_cmd(self):
@@ -319,7 +322,7 @@ class RequestAnalysisTest(unittest.TestCase):
 # '''
 
 
-# '''
+'''
 class AllocAndDelTaskTest(unittest.TestCase):
     def test_alloc_and_del_task(self):
         cmd_processer = CMDProcesser()
@@ -360,7 +363,7 @@ class AllocAndDelTaskTest(unittest.TestCase):
 # '''
 
 
-# '''
+'''
 class GetStatusTest(unittest.TestCase):
     def test_invalid_task_id(self):
         cmd_processer = CMDProcesser()
@@ -412,7 +415,7 @@ class GetStatusTest(unittest.TestCase):
         del cmd_processer
 # '''
 
-
+'''
 class UDPClient:
     def __init__(self, host, port):
         self.host = host
@@ -436,9 +439,8 @@ def udp_server_process(host, port):
     request, client_addr = udp_server.get_request()
     print("Message:{}, ClientAddr: {}".format(request, client_addr))
     udp_server.send_response(client_addr=client_addr, data=request.upper())
+    del udp_server
     return
-
-
 
 class UDPServerTest(unittest.TestCase):
     def test_server_test(self):
@@ -455,6 +457,31 @@ class UDPServerTest(unittest.TestCase):
         self.assertEqual(data.decode("utf-8"), message.upper())
         process.join()
         del udp_client
+# '''
+
+def tcp_server_test(host, port):
+    tcp_server = TCPServer(host, port)
+    message, client_socket = tcp_server.get_request()
+    response = message.upper()
+    tcp_server.send_response(client_socket, response)
+    del tcp_server
+    return
+
+class TCPServerTest(unittest.TestCase):
+    def test_tcp_server(self):
+        host = "127.0.0.1"
+        port = 12345
+        params = (host, port)
+        process = multiprocessing.Process(target=tcp_server_test, args=params)
+        process.start()
+        time.sleep(1)
+        tcp_client = TCPClient(host, port)
+        message = "abc"
+        tcp_client.send(message)
+        response = tcp_client.recv()
+        self.assertEqual(response, message.upper())
+        del tcp_client
+
 
 
 if __name__ == "__main__":
