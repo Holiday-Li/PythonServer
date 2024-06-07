@@ -1,25 +1,27 @@
 Table_1 ProjectInformation项目信息
-+----+------+--------------+----------+-----------+----------+------------+-----------+
-| id | name | project_path | ewp_path | core_arch | compiler | downloader | test_type |
-+----+------+--------------+----------+-----------+----------+------------+-----------+
++----+-------------+-------------+---------+----------+
+| ID | ProjectName | ProjectPath | idePath | TestType |
++----+-------------+-------------+---------+----------+
 数据项描述:
-id - 项目ID
-name - 项目名称，通常为ewp文件去除后缀后的文件名
-project_path - 项目存储路径
-ewp_path - 项目配置文件名
-core_arch - 处理器架构
-            例如: RISCV, ARM, ARM-64
-compiler - 编译工具存储路径，代码编译时使用
-downloader - 下载工具存储路径，下载image时使用
+ID - 项目ID
+ProjectName - 项目名称，通常为ewp文件去除后缀后的文件名
+ProjectPath - 项目存储路径
+idePath - IAR开发工具安装路径
+TestType - 测试类型，目前暂定为空
 
 Table_2 TestCase测试用例表
-+------------+-----------+--------+-----------+
-| project_id | module_id | sub_id | node_name |
-+------------+-----------+--------+-----------+
-project_id - 项目ID，作为外键与ProjectInformation表关联；
-             为1对多关系，一个项目信息表对应多个测试用例表
-module_id - 被测模块ID；
-            关联被测模块，例如SPI、I2C、CAN、Flasher等
-sub_id - 被测模块的子ID；
-         关联到具体的测试用例
-node_name - 测试用例节点名，生成被测main.c文件时用于替换任务添加节点中的节点名
++--------+-------------+----------+-------+---------+----------+-------------+------------+--------------+--------+
+| CaseID | ProjectName | ModuleID | SubID | NodName | CaseName | CaseContent | TestMethod | ExpectResult | Active |
++--------+-------------+----------+-------+---------+----------+-------------+------------+--------------+--------+
+CaseID - 测试用例ID
+ProjectName - 项目名，通过该信息获取ProjectInformation信息
+ModuleID - 被测模块ID；
+           关联被测模块，例如SPI、I2C、CAN、Flasher等
+SubID - 被测模块的子ID；
+        关联到具体的测试用例
+NodName - 测试用例节点名，生成被测main.c文件时用于替换任务添加节点中的节点名
+CaseName - 测试用例名
+CaseContent - 测试内容
+TestMethod - 测试方法
+ExpectResult - 期待的测试结果
+Active - 使能状态
