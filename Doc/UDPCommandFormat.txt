@@ -14,7 +14,7 @@ UDP交互指令：
 		更新测试用例代码；
 		当指定commit_id时，将测试代码更新至指定commit id
 		否则更新至最新版本
-	指令格式：update_tc_code -p project_id -c [commit_id]
+	指令格式：update_tc_code -p [project_id] -c [commit_id]
 	返回信息：
 		task_id
 			-1 ：异常
