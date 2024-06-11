@@ -79,10 +79,7 @@ static inline void ProcBySeq(void)
  */
 int demos_main(void)
 {
-    CLOCK_SYS_Init(g_pstClockManGcConfigsArr[0]);
-
-    /* Init the task queue */
-    TaskInit();
+    Board_Init();
     OS_ASSERT(TASK_SUCCESS == TaskListAdd(&%task_name%));
 
     /* Main loop */
