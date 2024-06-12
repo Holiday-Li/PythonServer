@@ -57,6 +57,7 @@
 #include "osal.h"
 #include "../include/task.h"
 #include "../modules/modules.h"
+#include "../include/board.h"
 
 #include <stdio.h>
 #include <string.h>
