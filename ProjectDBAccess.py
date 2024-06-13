@@ -1,6 +1,6 @@
 import os
 import pyodbc
-from Utils import get_current_dir_path
+from Utils import get_current_dir_path, clean_log_files
 import logging
 from Logger import get_logger
 
@@ -76,7 +76,100 @@ def get_ide_path(project_id:str, logger: logging.Logger, mdb_file_name:str="case
     return ide_path
 
 
+def get_project_name(project_id:int, logger:logging.Logger, mdb_file_name="caseManage .mdb")->str:
+    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
+    if not conn or not cursor:
+        logger.error("Connect database error")
+        return None
 
+    sql = "SELECT ProjectName FROM ProjectInformation WHERE ID={}".format(project_id)
+    try:
+        cursor.execute(sql)
+    except:
+        logger.error("Get project name error, SQL:{}".format(sql))
+        close_database(conn=conn, cursor=cursor)
+        return None
+
+    rows = cursor.fetchall()
+    if len(rows) != 1:
+        logger.error("Get project name error, get item: {}".format(len(rows)))
+        close_database(conn=conn, cursor=cursor)
+        return None
+
+    project_name = rows[0][0]
+    close_database(conn=conn, cursor=cursor)
+    return project_name
+
+
+def set_project_path(project_id:int, project_path:str, logger:logging.Logger,
+                     mdb_file_name:str="caseManage .mdb")->str:
+    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
+    if not conn or not cursor:
+        logger.error("Connect database error")
+        return False
+
+    sql = "UPDATE ProjectInformation SET ProjectPath='{}' WHERE ID={}".format(project_path, project_id)
+    try:
+        cursor.execute(sql)
+    except:
+        logger.error("Set project path error, SQL:{}".format(sql))
+        close_database(conn=conn, cursor=cursor)
+        return False
+
+    conn.commit()
+    return True
+
+
+def get_code_source(project_id:int, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
+    if not conn or not cursor:
+        logger.error("Connect database error")
+        return None
+
+    sql = "SELECT SourcePath FROM ProjectInformation WHERE ID={}".format(project_id)
+    try:
+        cursor.execute(sql)
+    except:
+        logger.error("Get code source error, SQL:{}".format(sql))
+        close_database(conn=conn, cursor=cursor)
+        return None
+
+    rows = cursor.fetchall()
+    if len(rows) != 1:
+        logger.error("Get code source error, get item: {}".format(len(rows)))
+        close_database(conn=conn, cursor=cursor)
+        return None
+
+    code_source = rows[0][0]
+    close_database(conn=conn, cursor=cursor)
+    return code_source
+
+
+def get_node_name(module_id:str, sub_id:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
+    if not conn or not cursor:
+        logger.error("Connect database error")
+        return None
+
+    sql = "SELECT NodName FROM TestCase WHERE MoubleID=? and SubID=?"
+    try:
+        cursor.execute(sql, (module_id, sub_id))
+    except:
+        logger.error("Execute SQL error")
+        close_database(conn=conn, cursor=cursor)
+        return None
+    rows = cursor.fetchall()
+    if len(rows) != 1:
+        logger.error("Get node name error, get item: {}".format(len(rows)))
+        close_database(conn=conn, cursor=cursor)
+        return None
+
+    node_name = rows[0][0]
+    close_database(conn=conn, cursor=cursor)
+    return node_name
+
+
+#-------------------------------------------- Test function ------------------------------------------------#
 def add_new_colum(table_name:str, colum_name:str, colum_type:str,
                   logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->bool:
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
@@ -86,7 +179,7 @@ def add_new_colum(table_name:str, colum_name:str, colum_type:str,
 
     sql = "ALTER TABLE {} ADD COLUMN {} {};".format(table_name, colum_name, colum_type)
     try:
-        cursor.execute(sql=sql)
+        cursor.execute(sql)
         conn.commit()
     except:
         logger.error("SQL execute error. SQL:{}".format(sql))
@@ -157,7 +250,7 @@ def show_table_info_table(table_name:str, mdb_file_name:str="caseManage .mdb"):
 
     sql="SELECT * FROM {}".format(table_name)
     try:
-        cursor.execute(sql=sql)
+        cursor.execute(sql)
     except:
         logger.error("SQL executes error, SQL:{}".format(sql))
         close_database(conn=conn, cursor=cursor)
@@ -170,49 +263,69 @@ def show_table_info_table(table_name:str, mdb_file_name:str="caseManage .mdb"):
     close_database(conn=conn, cursor=cursor)
     return True
 
-
-def get_node_name(module_id:str, sub_id:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+def update_code_source(project_id:int, code_source:str, mdb_file_name:str="caseManage .mdb")->bool:
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
-        return None
+        return False
 
-    sql = "SELECT NodName FROM TestCase WHERE MoubleID=? and SubID=?"
+    sql="UPDATE ProjectInformation SET SourcePath='{}' WHERE ID={}".format(code_source, project_id)
     try:
-        cursor.execute(sql, (module_id, sub_id))
+        cursor.execute(sql)
     except:
-        logger.error("Execute SQL error")
+        logger.error("Update code source error, SQL:{}".format(sql))
         close_database(conn=conn, cursor=cursor)
-        return None
-    rows = cursor.fetchall()
-    if len(rows) != 1:
-        logger.error("Get node name error, get item: {}".format(len(rows)))
-        close_database(conn=conn, cursor=cursor)
-        return None
+        return False
+    conn.commit()
 
-    node_name = rows[0][0]
     close_database(conn=conn, cursor=cursor)
-    return node_name
+    return True
 
 
 if __name__ == "__main__":
+    clean_log_files()
     logger = get_logger("mdb_test")
     # '''
     table_name = "ProjectInformation"
     print("------------{} Test------------".format(table_name))
+    # update_code_source(project_id=5, code_source="git@github.com:Holiday-Li/PythonServer.git")
     show_table_column(table_name=table_name, logger=logger)
     # add_new_line_for_project_info()
-    # show_table_info_table(table_name=table_name)
-    print("Test: get_project_path")
-    project_path = get_project_path(project_id=5, logger=logger)
-    print("\tProjectPath: {}".format(project_path))
-    print("\tProjectPathType: {}".format(type(project_path)))
+    show_table_info_table(table_name=table_name)
+    print("Test: get_project_name")
+    project_name = get_project_name(project_id=5, logger=logger)
+    print("\tprojectName: {}".format(project_name))
+    print("\tprojectNameType: {}".format(type(project_name)))
+
     print("Test: get_ide_path")
     ide_path = get_ide_path(project_id=5, logger=logger)
     print("\tidePath: {}".format(ide_path))
     print("\tidePathType: {}".format(type(ide_path)))
-    # '''
 
+    print("Test: get_code_source")
+    code_source = get_code_source(project_id=5, logger=logger)
+    print("\tcodeSource: {}".format(code_source))
+    print("\tcodeSourceType: {}".format(type(code_source)))
+
+    print("Test: get_project_path")
+    project_path = get_project_path(project_id=5, logger=logger)
+    print("\tProjectPath: {}".format(project_path))
+    print("\tProjectPathType: {}".format(type(project_path)))
+
+    print("Test: set_project_path")
+    test_path="c:\\test\\"
+    ret = set_project_path(project_id=5, project_path=test_path, logger=logger)
+    if not ret:
+        print("\tset_project_path error")
+    else:
+        search_path = get_project_path(project_id=5, logger=logger)
+        if test_path != search_path:
+            print("\tset_project_path error")
+        else:
+            print("\tset_project_path succeed")
+            set_project_path(project_id=5, project_path=project_path, logger=logger)
+
+    '''
     table_name = "TestCase"
     print("------------{} Test------------".format(table_name))
     show_table_column(table_name=table_name, logger=logger)
@@ -220,4 +333,5 @@ if __name__ == "__main__":
     print("Get node name:")
     node_name = get_node_name(module_id="MODULE_ID_SPI", sub_id="0x0001", logger=logger)
     print("\tNodeName:{}".format(node_name))
+    # '''
     del logger
