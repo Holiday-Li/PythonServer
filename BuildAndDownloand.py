@@ -1,11 +1,14 @@
 from datetime import datetime
+import multiprocessing.managers
 import os
 import shutil
 import subprocess
 import time
-from ProjectAnalysis import get_project_name, get_ewp_file_path, get_core_arch
+import multiprocessing, logging
+from ProjectAnalysis import get_ewp_name, get_ewp_file_path, get_core_arch, get_file_base_in_project, parse_key_value_str
 from Utils import get_current_dir_path
 from Logger import get_logger
+from ProjectDBAccess import get_project_path, get_ide_path, get_node_name
 
 
 '''
@@ -17,7 +20,8 @@ from Logger import get_logger
     message - The new message need to be updated
  * Output: Null
 '''
-def update_queue_message(msg_queue, message, lock, logger):
+def update_queue_message(msg_queue:multiprocessing.Queue, message:str,
+                         lock:multiprocessing.Lock, logger:logging.Logger):
     if not msg_queue:
         logger.debug("[Message] {}".format(message))
         return
@@ -35,32 +39,6 @@ def update_queue_message(msg_queue, message, lock, logger):
 
 
 '''
- * Function name: get_project_path
- * Description: Get project code saved path by accessing database by project_id
- * Input: project_id
- * Output:
-        Succeed - code_path
-        Fail - None
-'''
-def get_project_path(project_id, logger=None):
-    code_path = None
-
-    # TBD
-    # Access the database to get the code saved path
-    # The logic of this code is dummy, will update after the project table of database is created.
-    # code_path = "C:\\Users\\lichunguang\\Documents\\WorkSpace\\IAR_WorkSpace\\emps_SLT_demo_20240402"
-    code_path = "C:\\Users\\lichunguang\\Documents\\WorkSpace\\IAR_WorkSpace\\project_test"
-    return code_path
-
-
-def get_ide_path(project_id, logger=None):
-    ide_path = None
-    ide_path = "C:\\Program Files\\IAR Systems\\Embedded Workbench 9.2"
-
-    return ide_path
-
-
-'''
  * Function name: get_template_file_path
  * Description: Get the template file path
  * Input: Null
@@ -68,7 +46,7 @@ def get_ide_path(project_id, logger=None):
         Succeed - The template file path
         Fail - None
 '''
-def get_template_file_path(logger):
+def get_template_file_path(logger:logging.Logger)->str:
     dir_path = get_current_dir_path()
     logger.info("Current path:{}".format(dir_path))
 
@@ -82,18 +60,18 @@ def get_template_file_path(logger):
     return file_path
 
 
-def get_target_file_path(project_id, logger):
-    project_path = get_project_path(project_id=project_id)
+def get_target_file_path(project_id:int, logger:logging.Logger)->str:
+    project_path = get_project_path(project_id=project_id, logger=logger)
     if not project_path:
         logger.error("No project found, project_id={}".format(project_id))
         return None
 
-    project_name = get_project_name(project_path=project_path)
+    ewp_name = get_ewp_name(project_path=project_path, logger=logger)
     if not project_path:
-        logger.error("Could not found the project name, project path={}".format(project_name))
+        logger.error("Could not found the ewp name, project path={}".format(project_path))
         return None
 
-    target_file_name = project_name + ".c"
+    target_file_name = ewp_name + ".c"
     target_file_path = None
     for root, _, files in os.walk(project_path):
         for file in files:
@@ -102,11 +80,16 @@ def get_target_file_path(project_id, logger):
                 break
         if target_file_path:
             break
+    if not target_file_path:
+        logger.error("Could not find targetFilePath.")
+        logger.error("TargetFileName: {}".format(target_file_name))
+        logger.error("ProjectPath: {}".format(project_path))
+        return None
     logger.info("TargetFilePath:{}".format(target_file_path))
     return target_file_path
 
 
-def backup_target_file(target_file_path, logger):
+def backup_target_file(target_file_path:str, logger:logging.Logger):
     base_file_name, _ = os.path.splitext(target_file_path)
     backup_file_name = (base_file_name
                         + datetime.now().strftime("_%Y-%m-%d-%H-%M-%S")
@@ -114,14 +97,6 @@ def backup_target_file(target_file_path, logger):
     logger.info("Store target file to:{}".format(backup_file_name))
     os.rename(target_file_path, backup_file_name)
     return
-
-
-def get_test_node_name(module_id, sub_id, logger):
-    # TBD - dummy function now
-    # This function should get test information by access database.
-    task_name = "testTask1"
-    logger.info("Task node name: {}".format(task_name))
-    return task_name
 
 
 '''
@@ -135,9 +110,9 @@ def get_test_node_name(module_id, sub_id, logger):
         Succeed - True
         Fail - False
 '''
-def main_file_generate(project_id, module_id, sub_id, logger):
+def main_file_generate(project_id:int, module_id:str, sub_id:str, logger:logging.Logger)->bool:
     target_file_path = get_target_file_path(project_id, logger)
-    if os.path.exists(target_file_path):
+    if target_file_path and os.path.exists(target_file_path):
         logger.info("Target file already exists, need backup the old file.")
         backup_target_file(target_file_path, logger)
 
@@ -151,7 +126,10 @@ def main_file_generate(project_id, module_id, sub_id, logger):
     with open(work_file_path, "r") as f:
         lines = f.readlines()
 
-    test_node_name = get_test_node_name(module_id, sub_id, logger)
+    test_node_name = get_node_name(module_id=module_id, sub_id=sub_id, logger=logger)
+    if not test_node_name:
+        logger.error("Get test node name error.")
+        return False
 
     new_lines = []
     for line in lines:
@@ -168,17 +146,21 @@ def main_file_generate(project_id, module_id, sub_id, logger):
     return True
 
 
-def env_set_up(project_id):
-    # TBD, get compile and download tool saved path by accessing database
-    ide_path = get_ide_path(project_id)
+def env_set_up(project_id:int, logger:logging.Logger):
+    # Get compile and download tool saved path by accessing database
+    ide_path = get_ide_path(project_id, logger)
     tool_path = "{}\\common\\bin".format(ide_path)
 
+    logger.info("Setup env path: {}".format(tool_path))
     os.putenv("path", tool_path)
     return
 
 
-def project_build(project_id, logger, compile_config="Debug"):
-    project_path = get_project_path(project_id=project_id)
+def project_build(project_id:int, logger:logging.Logger, compile_config:str="Debug")->bool:
+    project_path = get_project_path(project_id=project_id, logger=logger)
+    if not project_path:
+        logger.error("Can not find project path, project_id:{}".format(project_id))
+        return False
     ewp_file_path = get_ewp_file_path(project_path)
     if not ewp_file_path:
         logger.error("Can not find *.ewp file.")
@@ -188,101 +170,80 @@ def project_build(project_id, logger, compile_config="Debug"):
     ret = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, text=True)
     logger.info("Output:{}".format(ret.stdout))
-    logger.info("ErrMsg:{}".format(ret.stderr))
+    if ret.stderr:
+        logger.info("ErrMsg:{}".format(ret.stderr))
+        return False
     return True
 
 
-def driver_xcl_file_generate(project_path, logger, compile_config="Debug"):
+def driver_xcl_file_generate(project_path:str, logger:logging.Logger, compile_config:str="Debug")->bool:
     file_name = "auto_download.driver.xcl"
-    project_name = get_project_name(project_path, logger)
-    orignal_file_name = project_name + "." + compile_config + ".driver.xcl"
+    ewp_name = get_ewp_name(project_path, logger)
+    orignal_file_name = ewp_name + "." + compile_config + ".driver.xcl"
 
-    base_path = None
-    for root, _, files in os.walk(project_path):
-        for file in files:
-            if file == orignal_file_name:
-                base_path = root
-                break
+    base_path = get_file_base_in_project(project_path=project_path, file_name=orignal_file_name)
     if not base_path:
         logger.error("Could not found original driver xcl file.")
         return False
-    
-    orignal_file = os.path.join(base_path, orignal_file_name)
-    new_file = os.path.join(base_path, file_name)
-    logger.info("Orignal driver xcl file path: {}".format(orignal_file))
-    logger.info("Target will be generated at: {}".format(new_file))
-    if os.path.exists(new_file):
-        logger.info("Target file already exists, path: {}".format(new_file))
+    orignal_path = os.path.join(base_path, orignal_file_name)
+    new_path = os.path.join(base_path, file_name)
+    logger.debug("Orignal driver xcl file path: {}".format(orignal_path))
+    logger.debug("Target will be generated at: {}".format(new_path))
+    if os.path.exists(new_path):
+        logger.info("Target file already exists, path: {}".format(new_path))
         return True
     
     new_lines = []
-    with(open(orignal_file, "r")) as orignal_fp:
+    with(open(orignal_path, "r")) as orignal_fp:
         lines = orignal_fp.readlines()
         for line in lines:
-            if line.find(".dff") != -1:
-                file_path = line.replace('"', '')
-                logger.info("Found *.dff file, path: {}".format(file_path))
+            if line.find(".ddf") != -1:
+                file_path = line.replace('"', '').replace("\n", "").replace(" ", "")
+                logger.info("Found *.ddf file, path: {}".format(file_path))
                 _, file_name = os.path.split(file_path)
-                new_file_path = None
-                for root, _, files in os.walk(project_path):
-                    if new_file_path:
-                        break
-                    for file in files:
-                        if file == file_name:
-                            new_file_path = os.path.join(root, file)
-                            logger.info("Found *.dff file in project: {}".format(new_file_path))
-                            break
-                if new_file_path:
-                    new_lines.append('"' + new_file_path + '"')
-                else:
-                    logger.error("Could not find *.dff file in project folder.")
+                file_base = get_file_base_in_project(project_path=project_path, file_name=file_name)
+                if not file_base:
+                    logger.error("Could not found *.ddf file in project.")
                     new_lines.clear()
                     break
+                new_file_path = os.path.join(file_base, file_name)
+                new_lines.append('"' + new_file_path + '" \n')
             elif line.find(".probeconfig") != -1:
-                line = line.replace('"', '')
-                tmp_list = line.split("=")
-                _, file_name = os.path.split(tmp_list[1])
-                file_name = file_name.replace("\n", "").replace(" ", "")
+                line = line.replace('"', '').replace('\n', '')
+                key, file_name = parse_key_value_str(kv_str=line)
+                if not file_name:
+                    new_lines.clear()
+                    break
                 logger.info("Found *.probeconfig file, name: {}".format(file_name))
-                new_file_path = None
-                for root, _, files in os.walk(project_path):
-                    for file in files:
-                        if file == file_name:
-                            new_file_path = os.path.join(root, file)
-                            break
-                if not new_file_path:
+                file_base = get_file_base_in_project(project_path=project_path, file_name=file_name)
+                if not file_base:
                     logger.error("Could not found *.probeconfig file in project folder.")
                     new_lines.clear()
                     break
-                new_lines.append('"' + tmp_list[0] + '=' + new_file_path + '"\n')
+                new_file_path = os.path.join(file_base, file_name)
+                new_lines.append('"' + key + '=' + new_file_path + '" \n')
             else:
                 new_lines.append(line)
     
     if not new_lines:
         return False
-    with(open(new_file, "w+")) as new_fp:
+    with(open(new_path, "w+")) as new_fp:
         new_fp.writelines(new_lines)
     logger.info("Driver xcl file has been generated.")
     return True
 
 
-def general_xcl_file_generate(project_path, ide_path, logger, compile_config="Debug"):
+def general_xcl_file_generate(project_path:str, ide_path:str, logger:logging.Logger, compile_config:str="Debug")->bool:
     file_name = "auto_download.general.xcl"
-    project_name = get_project_name(project_path, logger)
-    orignal_file_name = "{project_name}.{compile_config}.driver.xcl".format(
-        project_name=project_name, compile_config=compile_config)
+    ewp_name = get_ewp_name(project_path, logger)
+    orignal_file_name = "{project_name}.{compile_config}.general.xcl".format(
+        project_name=ewp_name, compile_config=compile_config)
 
-    base_path = None
-    for root, _, files in os.walk(project_path):
-        if base_path:
-            break
-        for file in files:
-            if file == orignal_file_name:
-                base_path = root
-                break
+    base_path = get_file_base_in_project(project_path=project_path, file_name=orignal_file_name)
     if not base_path:
         logger.error("Could not find base path.")
         return False
+
     file_path = os.path.join(base_path, file_name)
     if os.path.exists(file_path):
         logger.info("General xcl file already exist, path: {}".format(file_path))
@@ -293,7 +254,7 @@ def general_xcl_file_generate(project_path, ide_path, logger, compile_config="De
         logger.error("Could not find *.ewp file.")
         return False
     
-    core_arch = get_core_arch(project_file_path=ewp_file_path)
+    core_arch = get_core_arch(ewp_file_path=ewp_file_path, logger=logger)
     logger.info("CoreArch: {}".format(core_arch))
     if core_arch == "RISCV":
         proc_dll = "riscvproc.dll"
@@ -335,21 +296,43 @@ def general_xcl_file_generate(project_path, ide_path, logger, compile_config="De
                 if not flashloader_path:
                     flashloader_path = os.path.join(root, file)
 
+
+    orignal_file_path = os.path.join(base_path, orignal_file_name)
+    logger.debug("Original general xcl file path: {}".format(orignal_file_path))
+    output_file = None
+    with(open(orignal_file_path, "r")) as fp:
+        data_lines = fp.readlines()
+        for data_line in data_lines:
+            if data_line.find("Exe") != -1:
+                logger.debug("Orignal output path: {}".format(data_line))
+                old_path = data_line.replace('"', '')
+                _, output_file = os.path.split(old_path)
+                logger.debug("Output file: {}".format(output_file))
+                break
+    if not output_file:
+        logger.error("Could not found orignal output file name.")
+        return False
     lines = []
-    lines.append('"{}"\n\n'.format(proc_path))
-    lines.append('"{}"\n\n'.format(jet_path))
-    lines.append('"{}\\{}.out"\n\n'.format(output_path, "{$ProjectName}"))
-    lines.append('--plugin="{}"\n\n'.format(plugin_path))
-    lines.append('--flash_loader="{}"\n\n'.format(flashloader_path))
-    # '''
+    lines.append('"{}" \n\n'.format(proc_path))
+    lines.append('"{}" \n\n'.format(jet_path))
+    lines.append('"{}\\{}.out" \n\n'.format(output_path, output_file))
+    lines.append('--plugin="{}" \n\n'.format(plugin_path))
+    lines.append('--flash_loader="{}" \n\n'.format(flashloader_path))
+
     with(open(file_path, "w+")) as fp:
         fp.writelines(lines)
-    # '''
+
     logger.info("General xcl file has been generated.")
     return True
 
 
-def xcl_file_generator(project_path, ide_path, logger):
+def xcl_file_generator(project_id:int, logger:logging.Logger)->bool:
+    project_path = get_project_path(project_id, logger)
+    if not project_path:
+        return False
+    ide_path = get_ide_path(project_id, logger)
+    if not ide_path:
+        return False
     ret = driver_xcl_file_generate(project_path, logger)
     if not ret:
         return ret
@@ -357,18 +340,20 @@ def xcl_file_generator(project_path, ide_path, logger):
     return ret
 
 
-def img_download(project_id, logger, compile_config="Debug"):
+def img_download(project_id:int, logger:logging.Logger)->bool:
     project_path = get_project_path(project_id, logger)
     if not project_path:
         logger.error("Get project path failed.")
         return False
-    project_name = get_project_name(project_path, logger)
-    if not project_name:
+    ewp_name = get_ewp_name(project_path, logger)
+    if not ewp_name:
         logger.error("Get project name failed.")
         return False
-    driver_config_file = project_name + "." + compile_config + ".driver.xcl"
+    # driver_config_file = project_name + "." + compile_config + ".driver.xcl"
+    driver_config_file = "auto_download.driver.xcl"
     driver_config_path = os.path.join(project_path, driver_config_file)
-    general_config_file = project_name + "." + compile_config + ".general.xcl"
+    # general_config_file = project_name + "." + compile_config + ".general.xcl"
+    general_config_file = "auto_download.general.xcl"
     general_config_path = os.path.join(project_path, general_config_file)
 
     cmd = ("cspybat -f " + general_config_path + " --download_only --backend -f "
@@ -381,7 +366,7 @@ def img_download(project_id, logger, compile_config="Debug"):
     return True
 
 
-def project_build_and_download(task_params, msg_queue, lock, task_id):
+def project_build_and_download(task_params:dict, msg_queue:multiprocessing.Queue, lock:multiprocessing.Lock, task_id:str):
     task_name   = "task_{}".format(task_id)
     project_id  = task_params["project_id"]
     module_id   = task_params["module_id"]
@@ -418,7 +403,7 @@ def project_build_and_download(task_params, msg_queue, lock, task_id):
 
     # Step 3: Generate xcl config files
     message = time.time()
-    ret = xcl_file_generator(project_path, ide_path, logger)
+    ret = xcl_file_generator(project_id, ide_path, logger)
     if not ret:
         message = "Error"
         update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
@@ -452,8 +437,46 @@ def project_build_and_download(task_params, msg_queue, lock, task_id):
     return
 
 
+def clean_build_image(project_id:int, logger:logging.Logger):
+    env_set_up(project_id=project_id, logger=logger)
+    project_path = get_project_path(project_id=project_id, logger=logger)
+    ewp_file_path = get_ewp_file_path(project_path)
+    if not ewp_file_path:
+        logger.error("Can not find *.ewp file.")
+        return False
+    cmd = "iarbuild " + ewp_file_path + " -clean Debug"
+    logger.info("Command:{}".format(cmd))
+    ret = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE, text=True)
+    logger.info("Output:{}".format(ret.stdout))
+    logger.info("ErrMsg:{}".format(ret.stderr))
+    return
+
+
 if __name__ == "__main__":
     logger = get_logger("xcl_test")
-    project_path = get_project_path(project_id=123)
-    ide_path = "C:\\Program Files\\IAR Systems\\Embedded Workbench 9.2"
-    ret = xcl_file_generator(project_path=project_path, ide_path=ide_path, logger=logger)
+
+    clean_build_image(project_id=5, logger=logger)
+    # '''
+    project_path = get_project_path(project_id=5, logger=logger)
+    ide_path = get_ide_path(project_id=5, logger=logger)
+    print("ProjectPath: {}".format(project_path))
+    print("IDEPath: {}".format(ide_path))
+    ret = xcl_file_generator(project_id=5, logger=logger)
+    if not ret:
+        logger.error("xcl file generates error.")
+        exit()
+    # '''
+
+    # '''
+    ret = main_file_generate(project_id=5, module_id="MODULE_ID_SPI", sub_id="0x0001", logger=logger)
+    if not ret:
+        logger.error("main file generates error")
+        exit()
+
+    env_set_up(project_id=5, logger=logger)
+    ret = project_build(project_id=5, logger=logger)
+    if not ret:
+        logger.error("project build error")
+        exit()
+    # '''
