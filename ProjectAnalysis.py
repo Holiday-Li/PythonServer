@@ -43,6 +43,23 @@ def get_core_arch(ewp_file_path:str, logger:logging.Logger)->str:
     return core_arch
 
 
-def get_value_by_assignment_str(assignment_str:str):
-    index = assignment_str.find("=")
-    return assignment_str[index + 1:].replace(" ", "").replace('"', "").replace(",", "").replace("\n", "")
+def parse_key_value_str(kv_str:str)->tuple[str, str]:
+    equal_sign_cnt = kv_str.count("=")
+    if equal_sign_cnt != 1:
+        return "", ""
+    str_list = kv_str.split("=")
+    key = str_list[0]
+    value = str_list[1]
+    return key, value
+
+
+def get_file_base_in_project(project_path:str, file_name:str)->str:
+    base_path = ""
+    for root, _, files in os.walk(project_path):
+        if base_path:
+            break
+        for file in files:
+            if file == file_name:
+                base_path = root
+                break
+    return base_path
