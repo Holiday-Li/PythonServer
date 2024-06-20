@@ -1,0 +1,21 @@
+@startuml
+actor LabView as LV
+participant CMDProcesser as CP
+database ProjectInformation as PI
+queue MessageQueue as MQ
+participant SubProcesser as SC
+
+LV -> CP : update_tc_info
+CP -> CP : check param
+CP -> PI : Get project code source
+PI -> CP : Code source(ssh git url)
+CP -> SC : Generate new process to clone/pull/reset code
+CP -> LV : task_id
+SC -> SC : Clone/Pull/Reset code
+SC -> PI : Update ProjectInformation to Database
+SC -> MQ : Process result
+CP -> MQ : Get proecss result
+MQ -> CP : Process result
+CP -> CP : Update task status
+
+@enduml

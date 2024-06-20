@@ -1,0 +1,10 @@
+@startuml
+actor LabView as LV
+participant CMDProcesser as CP
+queue MessageQueue as MQ
+
+LV -> CP: get_task_status\n[task_id]
+CP -> MQ: get message
+CP -> CP: check result
+CP -> LV: result\n[Running Down Error Timeout]
+@enduml

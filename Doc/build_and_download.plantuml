@@ -1,0 +1,20 @@
+@startuml
+actor LabView as LV
+participant CMDProcesser as CP
+database TestCase as TC
+queue MessageQueue as MQ
+participant SubProcesser as SP
+
+LV -> CP : build_and_download\n[projectID moduleID subID]
+CP -> TC : get tc_node\n[projectID moduleID subID]
+TC -> CP : tc_node
+TC -> TC : generate drvier xcl file
+TC -> TC : generate general xcl file
+TC -> SP : generate sub-process to\ngenerate main file
+TC -> LV : task_id
+SP -> SP : generate main file
+SP -> MQ : update process result
+CP -> MQ : Get process result
+MQ -> CP : result
+
+@enduml
