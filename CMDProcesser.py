@@ -1,6 +1,4 @@
-import multiprocessing
-import os
-import time
+import multiprocessing, os, time, logging
 # from UDPServer import UDPServer
 from TCPServer import TCPServer
 import BuildAndDownloand
@@ -131,9 +129,10 @@ class CMDProcesser:
         return
 
 
-    def get_task_status(self, task_id):
+    def get_task_status(self, task_id, logger:logging.Logger):
         task_id = task_id
         if len(self.task_list) == 0:
+            logger.error("No task_list exists.")
             return "None"
         # Get target task_info
         for task_info in self.task_list:
@@ -141,17 +140,21 @@ class CMDProcesser:
                 break
         # No target task found
         if task_info["task_id"] != task_id:
+            logger.info("No task exists, task_id: {}".format(task_id))
             return "None"
         # Task found but no sub-process object
         # This situation means that some issue happened in new process allocation
         if not task_info["process"]:
+            logger.info("No sub-process object exists, task_id: {}".format(task_id))
             return "Error"
         # The message of the task is empty
         if task_info["msg_queue"].empty():
             if not task_info["process"].is_alive():
+                logger.error("Message queue is empty and no proecss object exists, task_id: {}".format(task_id))
                 return "Error"
             # The sub-process is running but no new status updated
             if (time.time() - 300) > task_info["timestamp"]:
+                logger.error("Task has not updated timestamp more than 5 mins, task_id: {}".format(task_id))
                 return "Timeout"
             return "Running"
         # The message queue is not empty, it means the sub-process has updated the status to the queue
@@ -167,12 +170,15 @@ class CMDProcesser:
                 if (time.time() - 300) > timestamp:
                     return "Timeout"
                 task_info["timestamp"] = timestamp
+                logger.info("Task still running, task_id:{}, timestamp: {}".format(task_id, timestamp))
                 return "Running"
             elif isinstance(data, str):
                 response = data
                 if response != "Done":
                     response = "Error"
+                logger.info("Task status: {}, task_id: {}".format(response, task_id))
                 return response
+            logger.error("Unexpect error, task_id: {}".format(task_id))
             return "Error"
 
     def alloc_process_for_task(self, cmd, func, task_params):
