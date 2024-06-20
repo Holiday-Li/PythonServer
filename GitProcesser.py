@@ -1,8 +1,9 @@
-import git, os, logging
+import git, os, logging, multiprocessing, time
 from git.exc import InvalidGitRepositoryError
 from Logger import get_logger, clean_log_files
 from ProjectDBAccess import get_code_source, get_project_name, get_project_path, set_project_path
 from Utils import get_config_info
+from BuildAndDownloand import update_queue_message
 
 def clone_code(project_id:int, base_dir:str, logger:logging.Logger)->bool:
     #Get project name and generate project path by it.
@@ -64,6 +65,22 @@ def update_code(project_id:int, logger:logging.Logger, commit_id:str=None)->bool
             logger.error("New commit id set error.")
             return False
         return True
+
+def update_tc_code(task_params:dict, msg_queue:multiprocessing.Queue, lock:multiprocessing.Lock, task_id:str):
+    project_id = task_params["project_id"]
+    commit_id = task_params["commit_id"]
+    logger = get_logger("task_{}".format(task_id))
+
+    message = time.time()
+    update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
+
+    ret = update_code(project_id=project_id, logger=logger, commit_id=commit_id)
+    if not ret:
+        message = "Error"
+    else:
+        message = "Done"
+    update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
+    return
 
 
 if __name__ == "__main__":
