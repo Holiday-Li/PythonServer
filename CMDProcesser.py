@@ -1,11 +1,11 @@
 import multiprocessing
 import os
 import time
-import json
 # from UDPServer import UDPServer
 from TCPServer import TCPServer
 import BuildAndDownloand
-from ProjectDBAccess import DBAccesser
+from GitProcesser import update_tc_code
+from Logger import get_logger
 
 class CMDProcesser:
     # udp_server = None
@@ -23,13 +23,8 @@ class CMDProcesser:
         # Initialize UDP server object.
         # self.udp_server = UDPServer(host, port)
         self.tcp_server = TCPServer(host, port)
-    
 
     def __del__(self):
-        '''
-        if self.udp_server:
-            del self.udp_server
-        '''
         if self.tcp_server:
             del self.tcp_server
 
@@ -58,20 +53,6 @@ class CMDProcesser:
                 except:
                     cmd = None
                     args = None
-        elif (param_list[0] == "update_tc_info"):
-            # Command format: update_tc_info -p <project_path>
-            # Description: Analysis the project folder and update the project info to Database
-            if (("-p" not in param_list) or
-                (param_list.index("-p") != 1) or
-                (len(param_list) != 3)):
-                cmd = None
-                args = None
-            elif not os.path.exists(param_list[2]):
-                cmd = None
-                args = None
-            else:
-                cmd = param_list[0]
-                args["project_path"] = param_list[2]
         elif (param_list[0] == "update_tc_code"):
             # Command format: update_tc_code -p <project_id> [-c <commit_id>]
             # Description: Update test cases code to target commit id
@@ -87,7 +68,7 @@ class CMDProcesser:
                 except:
                     cmd = None
                     args = None
-                if len(param_list) == 5:
+                if cmd and len(param_list) == 5:
                     if param_list[3] != "-c":
                         cmd = None
                         args = None
@@ -128,14 +109,6 @@ class CMDProcesser:
         return cmd, args
     
 
-    '''
-    def __alloc_process_for_cmd(self, func, args):
-        process = multiprocessing.Process(target=func, args=args)
-        process.start()
-        return process
-    '''
-    
-
     def del_task(self, task_id):
         task_info = None
         for task_info in self.task_list:
@@ -159,6 +132,7 @@ class CMDProcesser:
 
 
     def get_task_status(self, task_id):
+        task_id = task_id
         if len(self.task_list) == 0:
             return "None"
         # Get target task_info
@@ -213,7 +187,7 @@ class CMDProcesser:
         process = multiprocessing.Process(target=func, args=params)
         process.start()
         task_info = {
-            "task_id": task_id,
+            "task_id": str(task_id),
             "CMD": cmd,
             "task_params": task_params,
             "process": process,
@@ -237,98 +211,70 @@ class CMDProcesser:
                                               task_params=task_params)
         return task_id
 
+    def __update_project_code(self, project_id:int, commit_id:str):
+        task_params = {
+            "project_id": project_id,
+            "commit_id": commit_id,
+        }
+        task_id = self.alloc_process_for_task(cmd="update_tc_code",
+                                              func=update_tc_code,
+                                              task_params=task_params)
+        return task_id
 
     def start_service(self):
+        logger = get_logger("main_log")
         while True:
-            print("Listen CMD:")
-            # request_data, client_addr = self.udp_server.get_request()
+            logger.info("Start listen.")
             request_data, client_socket = self.tcp_server.get_request()
             cmd, args = self.request_analysis(request_data=request_data)
             if cmd == "exit":
-                print("CMD:{}".format(cmd))
+                logger.info("CMD:{}".format(cmd))
                 if (self.running_task_count != 0):
                     message = "Running"
-                    # self.udp_server.send_response(client_addr, message)
                     self.tcp_server.send_response(client_socket, message)
+                    logger.info("There has some task running, could not exit.")
                     continue
                 message = "Done"
-                # self.udp_server.send_response(client_addr, message)
                 self.tcp_server.send_response(client_socket, message)
-                print("exit CMD Processer")
+                logger.info("exit CMD Processer")
                 break
             elif cmd == "get_task_status":
-                # '''
-                # UDP test code
-                print("CMD:{}".format(cmd))
-                if args["task_id"]:
-                    print("taskId:{}".format(args["task_id"]))
-                message="Running"
-                # self.udp_server.send_response(client_addr, message)
-                self.tcp_server.send_response(client_socket, message)
-                continue
-                '''
+                logger.info("CMD: {}".format(cmd))
+                logger.info("task_id: {}".format(args["task_id"]))
                 status = self.get_task_status(task_id=args["task_id"])
+                logger.info("Task status: {}".format(status))
                 if status == "Done" or status == "Error" or status == "Timeout":
+                    logger.info("Task finished, need delete task information")
                     self.del_task(task_id=args["task_id"])
-                self.udp_server.send_response(client_addr, status)
-                '''
-            elif cmd == "update_tc_info":
-                # '''
-                # UDP test code
-                print("CMD:{}".format(cmd))
-                if args["project_path"]:
-                    print("projectPath:{}".format(args["project_path"]))
-                message = "Done"
-                # self.udp_server.send_response(client_addr, message)
-                self.tcp_server.send_response(client_socket, message)
-                continue
-                '''
-                # TBD
-                # Step 1: Get project information by project id, such as save path
-                # Step 2: Analysis the compile and download tool path
-                # Step 3: Analysis the test case code to get tc_node_name, module_id, sub_id
-                db_accesser = DBAccesser()
-                message = db_accesser.update_project_info(project_path=args["project_path"])
-                self.udp_server.send_response(client_addr, message)
-                continue
-                '''
+                self.tcp_server.send_response(client_socket, status)
             elif cmd == "update_tc_code":
-                print("CMD:{}".format(cmd))
-                if args["project_id"]:
-                    print("projectId:{}".format(args["project_id"]))
-                message = "Done"
-                # self.udp_server.send_response(client_addr, message)
-                self.tcp_server.send_response(client_socket, message)
+                project_id = args["project_id"]
+                if "commit_id" in args:
+                    commit_id = args["commit_id"]
+                else:
+                    commit_id = ""
+                logger.info("CMD: {}".format(cmd))
+                logger.info("project_id: {}".format(project_id))
+                logger.info("commit_id: {}".format(commit_id))
+                task_id = self.__update_project_code(project_id=project_id, commit_id=commit_id)
+                logger.info("TaskID: {}".format(task_id))
+                self.tcp_server.send_response(client_socket, str(task_id))
                 continue
-                # TBD
-                # Step 1: Get test code path by project id by accessing database
-                # Setp 2: Call Git function to update test case code
-                pass
             elif cmd == "build_and_download":
-                # '''
-                # UDP test code
-                print("CMD:{}".format(cmd))
-                if args["project_id"]:
-                    print("projectId:{}".format(args["project_id"]))
-                if args["module_id"]:
-                    print("moduleId:{}".format(args["module_id"]))
-                if args["sub_id"]:
-                    print("subId:{}".format(args["sub_id"]))
-                message = "Running"
-                # self.udp_server.send_response(client_addr, message)
-                self.tcp_server.send_response(client_socket, message)
-                continue
-                '''
+                logger.info("CMD: {}".format(cmd))
+                logger.info("project_id: {}".format(args["project_id"]))
+                logger.info("module_id: {}".format(args["module_id"]))
+                logger.info("sub_id: {}".format(args["sub_id"]))
                 task_id = self.__start_build_and_download(project_id=args["project_id"],
                                                            module_id=args["module_id"],
                                                            sub_id=args["sub_id"])
-                self.udp_server(client_addr, task_id)
+                logger.info("TaskID: {}".format(task_id))
+                self.tcp_server.send_response(client_socket, str(task_id))
                 continue
-                '''
+                # '''
             else:
-                print("CMD:{}".format(cmd))
+                logger.info("Unexpect CMD:{}".format(cmd))
                 message = "Error"
-                # self.udp_server.send_response(client_addr, message)
                 self.tcp_server.send_response(client_socket, message)
 
 
