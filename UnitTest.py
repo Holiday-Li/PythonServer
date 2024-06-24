@@ -3,56 +3,25 @@ from CMDProcesser import CMDProcesser
 from UDPServer import UDPServer
 from TCPServer import TCPServer
 from TCPClient import TCPClient
+from Logger import get_logger, clean_log_files
 
-'''
+logger = get_logger("UT_Log")
+# cmd_processer = CMDProcesser()
+
+# '''
 def loop_process(task_params, msg_que, lock):
     while True:
+        logger = get_logger("UT_Loop")
         time.sleep(10)
         BuildAndDownloand.update_queue_message(msg_queue=msg_que,
                                                lock=lock,
-                                               message=time.time())
+                                               message=time.time(),
+                                               logger=logger)
+# '''
 
 
-# Sub-process test function
-# Using for get_status function
-def timeout_sub_process(task_params, msg_que, lock):
-    time.sleep(1)
-    # Time out test
-    timestamp = time.time()
-    # print("\tFirst timestamp: {}".format(timestamp))
-    BuildAndDownloand.update_queue_message(msg_queue=msg_que,
-                                           lock=lock,
-                                           message=timestamp)
-
-    time.sleep(5)
-    timestamp = time.time() - 300
-    # print("\tSecond timestamp: {}".format(timestamp))
-    BuildAndDownloand.update_queue_message(msg_queue=msg_que,
-                                           lock=lock,
-                                           message=timestamp)
-    return
-
-
-def done_sub_process(task_params, msg_que, lock):
-    time.sleep(1)
-    timestamp = time.time()
-
-    BuildAndDownloand.update_queue_message(msg_queue=msg_que,
-                                           lock=lock,
-                                           message=timestamp)
-    
-    time.sleep(5)
-
-    BuildAndDownloand.update_queue_message(msg_queue=msg_que,
-                                           lock=lock,
-                                           message="Done")
-    return
-'''
-
-
-'''
+# '''
 class RequestAnalysisTest(unittest.TestCase):
-
     def test_invalid_cmd(self):
         cmd_processer = CMDProcesser()
         request = "invalid_cmd"
@@ -131,14 +100,6 @@ class RequestAnalysisTest(unittest.TestCase):
         cmd, args = cmd_processer.request_analysis(request_data = request)
         self.assertEqual(cmd, None)
         self.assertEqual(args, None)
-        del cmd_processer
-    
-    def test_update_tc_info_1(self):
-        cmd_processer = CMDProcesser()
-        request = "update_tc_info -p C:\\Users\\lichunguang\\Documents\\WorkSpace"
-        cmd, args = cmd_processer.request_analysis(request_data = request)
-        self.assertEqual(cmd, "update_tc_info")
-        self.assertEqual(args["project_path"], "C:\\Users\\lichunguang\\Documents\\WorkSpace")
         del cmd_processer
     
     def test_update_tc_info_2(self):
@@ -322,13 +283,13 @@ class RequestAnalysisTest(unittest.TestCase):
 # '''
 
 
-'''
+# '''
 class AllocAndDelTaskTest(unittest.TestCase):
     def test_alloc_and_del_task(self):
-        cmd_processer = CMDProcesser()
         task_list = []
         task_params = None
         seq = 0
+        cmd_processer = CMDProcesser()
         
         cmd_processer.del_task(seq)
         self.assertEqual(cmd_processer.running_task_count, 0)
@@ -339,7 +300,7 @@ class AllocAndDelTaskTest(unittest.TestCase):
                                                            task_params=task_params,
                                                            func=loop_process)
             if i < cmd_processer.max_task_count:
-                self.assertEqual(task_id, seq)
+                self.assertEqual(task_id, str(seq))
                 self.assertEqual(cmd_processer.running_task_count, (i + 1))
                 seq += 1
                 task_list.append(task_id)
@@ -363,55 +324,110 @@ class AllocAndDelTaskTest(unittest.TestCase):
 # '''
 
 
-'''
+
+
+# Sub-process test function
+# Using for get_status function
+def timeout_sub_process(task_params, msg_que, lock, task_id):
+    logger = get_logger("UT_Task_{}".format(task_id))
+    time.sleep(1)
+    # Time out test
+    timestamp = time.time()
+    # print("\tFirst timestamp: {}".format(timestamp))
+    BuildAndDownloand.update_queue_message(msg_queue=msg_que,
+                                           lock=lock,
+                                           message=timestamp,
+                                           logger=logger)
+
+    time.sleep(5)
+    timestamp = time.time() - 300
+    # print("\tSecond timestamp: {}".format(timestamp))
+    BuildAndDownloand.update_queue_message(msg_queue=msg_que,
+                                           lock=lock,
+                                           message=timestamp,
+                                           logger=logger)
+    return
+
+
+def done_sub_process(task_params, msg_que, lock, task_id):
+    logger = get_logger("UT_Task_{}".format(task_id))
+    time.sleep(1)
+    timestamp = time.time()
+
+    BuildAndDownloand.update_queue_message(msg_queue=msg_que,
+                                           lock=lock,
+                                           message=timestamp,
+                                           logger=logger)
+    
+    time.sleep(5)
+
+    BuildAndDownloand.update_queue_message(msg_queue=msg_que,
+                                           lock=lock,
+                                           message="Done",
+                                           logger=logger)
+    return
+
+
 class GetStatusTest(unittest.TestCase):
     def test_invalid_task_id(self):
         cmd_processer = CMDProcesser()
-        status = cmd_processer.get_task_status(task_id=cmd_processer.task_seq)
+        status = cmd_processer.get_task_status(task_id=cmd_processer.task_seq, logger=logger)
         self.assertEqual(status, "None")
         del cmd_processer
 
     def test_timeout_task(self):
         cmd_processer = CMDProcesser()
+        print("Running count: {}".format(cmd_processer.running_task_count))
+        print("task_list: {}".format(cmd_processer.task_list))
+        logger.info("Test --- test_timeout_task -- start")
+        task_seq = cmd_processer.task_seq
         task_id = cmd_processer.alloc_process_for_task(cmd="status_test",
                                                        func=timeout_sub_process,
                                                        task_params=None)
-        self.assertEqual(task_id, 0)
+        self.assertEqual(task_id, str(task_seq))
         self.assertAlmostEqual(cmd_processer.running_task_count, 1)
 
-        
-        status = cmd_processer.get_task_status(task_id=1)
+        status = cmd_processer.get_task_status(task_id=(cmd_processer.task_seq),
+                                               logger=logger)
         self.assertEqual(status, "None")
-        
-        status = cmd_processer.get_task_status(task_id=0)
+
+        status = cmd_processer.get_task_status(task_id=task_id, logger=logger)
         self.assertEqual(status, "Running")
 
         time.sleep(2)
-        status = cmd_processer.get_task_status(task_id=0)
+        status = cmd_processer.get_task_status(task_id=task_id, logger=logger)
         self.assertEqual(status, "Running")
 
         time.sleep(7)
-        status = cmd_processer.get_task_status(task_id=0)
+        status = cmd_processer.get_task_status(task_id=task_id, logger=logger)
         self.assertEqual(status, "Timeout")
+        logger.info("Test --- test_timeout_task -- Stop")
         del cmd_processer
-    
+
     def test_done_task(self):
         cmd_processer = CMDProcesser()
-
+        logger.info("Test --- test_done_task -- start")
         task_id = cmd_processer.alloc_process_for_task(cmd="done_test",
                                                        func=done_sub_process,
                                                        task_params=None)
         
-        status = cmd_processer.get_task_status(task_id=task_id)
+        status = cmd_processer.get_task_status(task_id=task_id, logger=logger)
+        logger.info("TaskList: {}".format(cmd_processer.task_list))
+        logger.info("Status: {}".format(status))
         self.assertEqual(status, "Running")
 
         time.sleep(2)
-        status = cmd_processer.get_task_status(task_id=task_id)
+        status = cmd_processer.get_task_status(task_id=task_id, logger=logger)
+        logger.info("TaskList: {}".format(cmd_processer.task_list))
+        logger.info("Status: {}".format(status))
         self.assertEqual(status, "Running")
 
         time.sleep(7)
-        status = cmd_processer.get_task_status(task_id=task_id)
+        status = cmd_processer.get_task_status(task_id=task_id, logger=logger)
+        logger.info("TaskList: {}".format(cmd_processer.task_list))
+        logger.info("Status: {}".format(status))
         self.assertEqual(status, "Done")
+        logger.info("Test --- test_done_task -- stop")
         del cmd_processer
 # '''
 
@@ -459,6 +475,7 @@ class UDPServerTest(unittest.TestCase):
         del udp_client
 # '''
 
+# '''
 def tcp_server_test(host, port):
     tcp_server = TCPServer(host, port)
     message, client_socket = tcp_server.get_request()
@@ -480,9 +497,11 @@ class TCPServerTest(unittest.TestCase):
         tcp_client.send(message)
         response = tcp_client.recv()
         self.assertEqual(response, message.upper())
+        tcp_client.close()
         del tcp_client
-
+# '''
 
 
 if __name__ == "__main__":
+    # clean_log_files()
     unittest.main()
