@@ -130,6 +130,7 @@ class CMDProcesser:
 
 
     def get_task_status(self, task_id, logger:logging.Logger):
+        logger.info("Get task status, task_id={}".format(task_id))
         task_id = task_id
         if len(self.task_list) == 0:
             logger.error("No task_list exists.")
