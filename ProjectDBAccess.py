@@ -58,7 +58,7 @@ def get_project_path(project_id:int, logger:logging.Logger, mdb_file_name:str="c
     try:
         cursor.execute(sql)
     except:
-        logger.error("Get project path, SQL excute error.")
+        logger.error("Get project path, SQL excute error. sql:{}".format(sql))
         disconnect_database(conn=conn, cursor=cursor)
         return None
 
@@ -183,7 +183,7 @@ def get_node_name(module_id:str, sub_id:str, logger:logging.Logger, mdb_file_nam
     try:
         cursor.execute(sql, (module_id, sub_id))
     except:
-        logger.error("Execute SQL error")
+        logger.error("Execute SQL error, sql={}".format(sql))
         disconnect_database(conn=conn, cursor=cursor)
         return None
     rows = cursor.fetchall()

@@ -85,7 +85,7 @@ class CMDProcesser:
                 for index, value in enumerate(param_list):
                     if value == "-p":
                         try:
-                            args["project_id"] = int(param_list[index + 1])
+                            args["project_id"] = param_list[index + 1]
                         except:
                             args = None
                             break
@@ -93,7 +93,7 @@ class CMDProcesser:
                         args["module_id"] = param_list[index + 1]
                     elif value == "-s":
                         try:
-                            args["sub_id"] = int(param_list[index + 1])
+                            args["sub_id"] = param_list[index + 1]
                         except:
                             args = None
                             break
@@ -233,6 +233,7 @@ class CMDProcesser:
         logger.info("Start listen.")
         while True:
             request_data, client_socket = self.tcp_server.get_request()
+            logger.info("Get request: {}".format(request_data))
             cmd, args = self.request_analysis(request_data=request_data)
             if cmd == "exit":
                 logger.info("CMD:{}".format(cmd))
@@ -287,7 +288,7 @@ class CMDProcesser:
                 continue
                 # '''
             else:
-                logger.info("Unexpect CMD:{}".format(cmd))
+                logger.info("Unexpect CMD:{}".format(request_data))
                 message = "Error"
                 self.tcp_server.send_response(client_socket, message)
 
