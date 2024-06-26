@@ -123,6 +123,31 @@ def get_project_name(project_id:int, logger:logging.Logger, mdb_file_name="caseM
     return project_name
 
 
+def get_count_by_name(project_name:str, logger:logging.Logger, mdb_file_name="caseManage .mdb")->int:
+    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
+    if not conn or not cursor:
+        logger.error("Connect database error")
+        return None
+
+    sql = "SELECT COUNT(*) FROM ProjectInformation WHERE ProjectName='{}'".format(project_name)
+    try:
+        cursor.execute(sql)
+    except:
+        logger.error("Get project name error, SQL:{}".format(sql))
+        disconnect_database(conn=conn, cursor=cursor)
+        return None
+
+    data = cursor.fetchone()
+    if len(data) != 1:
+        logger.error("Get project name error, get item: {}".format(len(data)))
+        disconnect_database(conn=conn, cursor=cursor)
+        return None
+
+    count = data[0]
+    disconnect_database(conn=conn, cursor=cursor)
+    return count
+
+
 def get_code_source(project_id:int, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
@@ -351,63 +376,11 @@ def update_code_source(project_id:int, code_source:str, mdb_file_name:str="caseM
 
 if __name__ == "__main__":
     clean_log_files()
-    logger = get_logger("mdb_test")
-    # '''
+    logger = get_logger("DBA_Log")
     table_name = "ProjectInformation"
-    print("------------{} Test------------".format(table_name))
-    # update_code_source(project_id=5, code_source="git@github.com:Holiday-Li/PythonServer.git")
+    # table_name = "TestCase"
     show_table_column(table_name=table_name, logger=logger)
-    # add_new_line_for_project_info()
     show_table_info_table(table_name=table_name)
-    # del_item_from_table(project_id=6, table_name=table_name, logger=logger)
-    # show_table_info_table(table_name=table_name)
-    '''
-    add_item_for_project_info(project_id=6, project_name="GitTest", project_path="",
-                              source_path="git@github.com:Holiday-Li/PythonServer.git",
-                              ide_path="", logger=logger)
-    show_table_info_table(table_name=table_name)
-    '''
-    print("Test: get_project_name")
-    project_name = get_project_name(project_id=5, logger=logger)
-    print("\tprojectName: {}".format(project_name))
-    print("\tprojectNameType: {}".format(type(project_name)))
-
-    print("Test: get_ide_path")
-    ide_path = get_ide_path(project_id=5, logger=logger)
-    print("\tidePath: {}".format(ide_path))
-    print("\tidePathType: {}".format(type(ide_path)))
-
-    print("Test: get_code_source")
-    code_source = get_code_source(project_id=5, logger=logger)
-    print("\tcodeSource: {}".format(code_source))
-    print("\tcodeSourceType: {}".format(type(code_source)))
-
-    print("Test: get_project_path")
-    project_path = get_project_path(project_id=5, logger=logger)
-    print("\tProjectPath: {}".format(project_path))
-    print("\tProjectPathType: {}".format(type(project_path)))
-
-    print("Test: set_project_path")
-    test_path="c:\\test\\"
-    ret = set_project_path(project_id=5, project_path=test_path, logger=logger)
-    if not ret:
-        print("\tset_project_path error")
-    else:
-        search_path = get_project_path(project_id=5, logger=logger)
-        if test_path != search_path:
-            print("\tset_project_path error")
-        else:
-            print("\tset_project_path succeed")
-            set_project_path(project_id=5, project_path=project_path, logger=logger)
-    # '''
-
-    '''
-    table_name = "TestCase"
-    print("------------{} Test------------".format(table_name))
-    show_table_column(table_name=table_name, logger=logger)
-    # show_table_info_table(table_name=table_name)
-    print("Get node name:")
-    node_name = get_node_name(module_id="MODULE_ID_SPI", sub_id="0x0001", logger=logger)
-    print("\tNodeName:{}".format(node_name))
-    # '''
-    del logger
+    count = get_count_by_name(project_name="GitTest", logger=logger)
+    print("Rows Type: {}".format(type(count)))
+    print("Rows:\n\t{}".format(count))

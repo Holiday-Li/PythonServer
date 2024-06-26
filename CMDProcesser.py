@@ -46,7 +46,7 @@ class CMDProcesser:
                 args = None
             else:
                 try:
-                    args["task_id"] = int(param_list[2])
+                    args["task_id"] = param_list[2]
                     cmd = param_list[0]
                 except:
                     cmd = None
@@ -70,7 +70,7 @@ class CMDProcesser:
                     if param_list[3] != "-c":
                         cmd = None
                         args = None
-                    else:
+                    elif param_list[4] != "NULL":
                         args["commit_id"] = param_list[4]
         elif (param_list[0] == "build_and_download"):
             # Command format: build_and_download -p <project_id> -m <module_id> -s <sub_id>
@@ -230,13 +230,17 @@ class CMDProcesser:
 
     def start_service(self):
         logger = get_logger("main_log")
+        logger.info("Start listen.")
         while True:
-            logger.info("Start listen.")
             request_data, client_socket = self.tcp_server.get_request()
             cmd, args = self.request_analysis(request_data=request_data)
             if cmd == "exit":
                 logger.info("CMD:{}".format(cmd))
-                if (self.running_task_count != 0):
+                running_task_count = 0
+                for task_info in self.task_list:
+                    if task_info["process"].is_alive():
+                        running_task_count += 1
+                if running_task_count:
                     message = "Running"
                     self.tcp_server.send_response(client_socket, message)
                     logger.info("There has some task running, could not exit.")
@@ -248,7 +252,10 @@ class CMDProcesser:
             elif cmd == "get_task_status":
                 logger.info("CMD: {}".format(cmd))
                 logger.info("task_id: {}".format(args["task_id"]))
-                status = self.get_task_status(task_id=args["task_id"])
+                logger.info("TaskList:")
+                for task_info in self.task_list:
+                    logger.info("TaskInfo:{}".format(task_info))
+                status = self.get_task_status(task_id=args["task_id"], logger=logger)
                 logger.info("Task status: {}".format(status))
                 if status == "Done" or status == "Error" or status == "Timeout":
                     logger.info("Task finished, need delete task information")

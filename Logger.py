@@ -12,7 +12,7 @@ def generate_log_folder()->str:
 def init_logger(log_folder:str, logger_name:str)->logging.Logger:
     # Create logger
     logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     # Create file handler
     log_filepath = os.path.join(log_folder, "{}.log".format(logger_name))
@@ -47,12 +47,3 @@ def clean_log_files():
             print("\t{}".format(log_file))
             os.remove(log_file)
     return
-
-
-if __name__ == "__main__":
-    clean_log_files()
-    logger = get_logger("123")
-    logger.info("info message")
-    logger.debug("debug message")
-    logger.error("error message")
-    del logger

@@ -451,32 +451,3 @@ def clean_build_image(project_id:int, logger:logging.Logger):
     logger.info("Output:{}".format(ret.stdout))
     logger.info("ErrMsg:{}".format(ret.stderr))
     return
-
-
-if __name__ == "__main__":
-    logger = get_logger("xcl_test")
-
-    clean_build_image(project_id=5, logger=logger)
-    # '''
-    project_path = get_project_path(project_id=5, logger=logger)
-    ide_path = get_ide_path(project_id=5, logger=logger)
-    print("ProjectPath: {}".format(project_path))
-    print("IDEPath: {}".format(ide_path))
-    ret = xcl_file_generator(project_id=5, logger=logger)
-    if not ret:
-        logger.error("xcl file generates error.")
-        exit()
-    # '''
-
-    # '''
-    ret = main_file_generate(project_id=5, module_id="MODULE_ID_SPI", sub_id="0x0001", logger=logger)
-    if not ret:
-        logger.error("main file generates error")
-        exit()
-
-    env_set_up(project_id=5, logger=logger)
-    ret = project_build(project_id=5, logger=logger)
-    if not ret:
-        logger.error("project build error")
-        exit()
-    # '''
