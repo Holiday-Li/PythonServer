@@ -63,3 +63,9 @@ def get_file_base_in_project(project_path:str, file_name:str)->str:
                 base_path = root
                 break
     return base_path
+
+if __name__ == "__main__":
+    testStr = '"--jet_board_cfg=C:\\Users\\Administrator\\Documents\\02-SDK\\5_2_2\\emps_SLT_demo_20240402\\demos\\slt\\EWRISCV\\..\\..\\..\\IDE\\EWRISCV\\debugger\\ESWIN\\EAM2011.probeconfig" '
+    key, value = parse_key_value_str(testStr)
+    print("Key:{}".format(key))
+    print("Value:{}".format(value))

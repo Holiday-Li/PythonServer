@@ -40,14 +40,19 @@ def get_commit_id(project_path:str, logger:logging.Logger)->str:
 
 def update_code(project_id:int, logger:logging.Logger, commit_id:str=None)->bool:
     project_path = get_project_path(project_id=project_id, logger=logger)
+    logger.info("project_path:{}".format(project_path))
+    if not project_path:
+        logger.info("ProjectPath exists:{}".format(os.path.exists(project_path)))
     # If the project_path is "",
     # it means that the code has not been cloned from the remote repo,
     # So, it should clone the code first.
-    if not project_path:
+    if (not project_path) or (not os.path.exists(project_path)):
         code_base = get_code_base_path(logger=logger)
+        logger.info("CodeBase:{}".format(code_base))
         if not code_base:
             return False
         project_name = get_project_name(project_id=project_id, logger=logger)
+        logger.info("ProjectName:{}".format(project_name))
         if not project_name:
             return False
         code_source = get_code_source(project_id=project_id, logger=logger)
@@ -70,6 +75,7 @@ def update_code(project_id:int, logger:logging.Logger, commit_id:str=None)->bool
     except InvalidGitRepositoryError:
         logger.error("Invalide project path: {}".format(project_path))
         return False
+    repo.index.reset(index=True, working_tree=True)
     
     # If commit id is invalid, get the last version of the code.
     # else, change the code to the target commit.
@@ -99,3 +105,9 @@ def update_tc_code(task_params:dict, msg_queue:multiprocessing.Queue, lock:multi
         message = "Done"
     update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
     return
+
+
+if __name__ == "__main__":
+    test_path = "F:\\Work\\VS_Code\\Test\\GitTest"
+    repo = git.Repo(test_path)
+    repo.index.reset(index=True, working_tree=True)

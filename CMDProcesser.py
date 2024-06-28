@@ -3,7 +3,7 @@ import multiprocessing, os, time, logging
 from TCPServer import TCPServer
 import BuildAndDownloand
 from GitProcesser import update_tc_code
-from Logger import get_logger
+from Logger import get_logger, clean_log_files
 
 class CMDProcesser:
     # udp_server = None
@@ -229,6 +229,7 @@ class CMDProcesser:
         return task_id
 
     def start_service(self):
+        clean_log_files()
         logger = get_logger("main_log")
         logger.info("Start listen.")
         while True:

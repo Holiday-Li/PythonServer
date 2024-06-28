@@ -179,9 +179,9 @@ def get_node_name(module_id:str, sub_id:str, logger:logging.Logger, mdb_file_nam
         logger.error("Connect database error")
         return None
 
-    sql = "SELECT NodName FROM TestCase WHERE MoubleID=? and SubID=?"
+    sql = "SELECT NodName FROM TestCase WHERE ModuleID='{}' and SubID='{}'".format(module_id, sub_id)
     try:
-        cursor.execute(sql, (module_id, sub_id))
+        cursor.execute(sql)
     except:
         logger.error("Execute SQL error, sql={}".format(sql))
         disconnect_database(conn=conn, cursor=cursor)
@@ -243,7 +243,7 @@ def show_table_column(table_name:str, logger:logging.Logger):
     columns_name = get_colums_name(table_name=table_name, logger=logger)
     print("TableName:{}".format(table_name))
     for column_name in columns_name:
-        print("\tColumnName:{}".format(column_name))
+        print("\tColumnName:*{}*".format(column_name))
     return
 
 
@@ -377,10 +377,12 @@ def update_code_source(project_id:int, code_source:str, mdb_file_name:str="caseM
 if __name__ == "__main__":
     clean_log_files()
     logger = get_logger("DBA_Log")
-    table_name = "ProjectInformation"
-    # table_name = "TestCase"
-    show_table_column(table_name=table_name, logger=logger)
+    # table_name = "ProjectInformation"
+    table_name = "TestCase"
     show_table_info_table(table_name=table_name)
-    count = get_count_by_name(project_name="GitTest", logger=logger)
-    print("Rows Type: {}".format(type(count)))
-    print("Rows:\n\t{}".format(count))
+    show_table_column(table_name=table_name, logger=logger)
+    # count = get_count_by_name(project_name="GitTest", logger=logger)
+    # print("Rows Type: {}".format(type(count)))
+    # print("Rows:\n\t{}".format(count))
+    node_name = get_node_name(module_id="MODULE_ID_PITMR", sub_id="0x0001", logger=logger)
+    print("node_name = {}".format(node_name))

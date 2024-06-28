@@ -81,6 +81,10 @@ static inline void ProcBySeq(void)
 int demos_main(void)
 {
     Board_Init();
+
+    /* Init the task queue */
+    TaskInit();
+
     OS_ASSERT(TASK_SUCCESS == TaskListAdd(&%task_name%));
 
     /* Main loop */
@@ -89,5 +93,6 @@ int demos_main(void)
         // ProcByCmd(NULL);
     }
 
+    Board_Deinit();
     return 0;
 }

@@ -39,11 +39,8 @@ def get_logger(logger_name:str)->logging.Logger:
 def clean_log_files():
     base_path = get_current_dir_path()
     log_folder = os.path.join(base_path, "log\\")
-    print("log folder path:{}".format(log_folder))
-    print("log files:")
     for root, _, files in os.walk(log_folder):
         for file in files:
             log_file = os.path.join(root, file)
-            print("\t{}".format(log_file))
             os.remove(log_file)
     return
