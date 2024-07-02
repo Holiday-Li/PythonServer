@@ -89,8 +89,8 @@ int demos_main(void)
 
     /* Main loop */
     while (0 == g_exitCode) {
-        ProcBySeq();
-        // ProcByCmd(NULL);
+        // ProcBySeq();
+        ProcByCmd(NULL);
     }
 
     Board_Deinit();
