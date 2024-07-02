@@ -235,15 +235,10 @@ class CMDProcesser:
             cmd, args = self.request_analysis(request_data=request_data)
             if cmd == "exit":
                 logger.info("CMD:{}".format(cmd))
-                running_task_count = 0
                 for task_info in self.task_list:
                     if task_info["process"].is_alive():
-                        running_task_count += 1
-                if running_task_count:
-                    message = "Running"
-                    self.tcp_server.send_response(client_socket, message)
-                    logger.info("There has some task running, could not exit.")
-                    continue
+                        task_info["process"].terminate()
+                        task_info["process"].join()
                 message = "Done"
                 self.tcp_server.send_response(client_socket, message)
                 logger.info("exit CMD Processer")
