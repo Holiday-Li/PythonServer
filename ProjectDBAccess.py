@@ -173,13 +173,17 @@ def get_code_source(project_id:int, logger:logging.Logger, mdb_file_name:str="ca
     return code_source
 
 
-def get_node_name(module_id:str, sub_id:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+def get_node_name(project_id:int, module_id:str, sub_id:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+    project_name = get_project_name(project_id=project_id, logger=logger)
+    if not project_name:
+        logger.error("Get project_name error, project_id={}".format(project_id))
+        return None
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
         return None
 
-    sql = "SELECT NodName FROM TestCase WHERE ModuleID='{}' and SubID='{}'".format(module_id, sub_id)
+    sql = "SELECT NodName FROM TestCase WHERE MoubleID='{}' and SubID='{}'".format(module_id, sub_id)
     try:
         cursor.execute(sql)
     except:
@@ -384,5 +388,5 @@ if __name__ == "__main__":
     # count = get_count_by_name(project_name="GitTest", logger=logger)
     # print("Rows Type: {}".format(type(count)))
     # print("Rows:\n\t{}".format(count))
-    node_name = get_node_name(module_id="MODULE_ID_PITMR", sub_id="0x0001", logger=logger)
+    node_name = get_node_name(project_id=1, module_id="MODULE_ID_CMU", sub_id="0x0001", logger=logger)
     print("node_name = {}".format(node_name))

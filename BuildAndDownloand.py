@@ -121,7 +121,7 @@ def main_file_generate(project_id:int, module_id:str, sub_id:str, logger:logging
         logger.error("Get template file path error.")
         return False
 
-    test_node_name = get_node_name(module_id=module_id, sub_id=sub_id, logger=logger)
+    test_node_name = get_node_name(project_id=project_id, module_id=module_id, sub_id=sub_id, logger=logger)
     if not test_node_name:
         logger.error("Get test node name error.")
         return False
@@ -374,11 +374,12 @@ def img_download(project_id:int, logger:logging.Logger, compile_config="Debug")-
     general_config_file = "auto_download.general.xcl"
     general_config_path = os.path.join(base_path, general_config_file)
 
-    '''
+    # '''
     cmd = ("cspybat -f " + general_config_path + " --download_only --backend -f "
            + driver_config_path)
     '''
     cmd = ("cspybat -f " + general_config_path + " --backend -f " + driver_config_path)
+    '''
     logger.info("Command: {}".format(cmd))
     ret = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, text=True)
