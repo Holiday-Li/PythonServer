@@ -95,14 +95,17 @@ def update_tc_code(task_params:dict, msg_queue:multiprocessing.Queue, lock:multi
     commit_id = task_params["commit_id"]
     logger = get_logger("task_{}".format(task_id))
 
-    message = time.time()
+    message = {
+        "status": "Running",
+        "timestamp": time.time()
+    }
     update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
 
     ret = update_code(project_id=project_id, logger=logger, commit_id=commit_id)
     if not ret:
-        message = "Error"
+        message = {"status": "Error"}
     else:
-        message = "Done"
+        message = {"status": "Done"}
     update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
     return
 

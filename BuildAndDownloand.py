@@ -374,12 +374,12 @@ def img_download(project_id:int, logger:logging.Logger, compile_config="Debug")-
     general_config_file = "auto_download.general.xcl"
     general_config_path = os.path.join(base_path, general_config_file)
 
-    # '''
+    '''
     cmd = ("cspybat -f " + general_config_path + " --download_only --backend -f "
            + driver_config_path)
     '''
     cmd = ("cspybat -f " + general_config_path + " --backend -f " + driver_config_path)
-    '''
+    # '''
     logger.info("Command: {}".format(cmd))
     ret = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, text=True)
@@ -399,11 +399,14 @@ def project_build_and_download(task_params:dict, msg_queue:multiprocessing.Queue
 
     logger = get_logger(task_name)
     # Step 1: Get target project path
-    message = time.time()
+    message = {
+        "status": "Running",
+        "timestamp": time.time()
+    }
     update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
     code_path = get_project_path(project_id, logger)
     if not code_path:
-        message = "Error"
+        message = {"status": "Error"}
         update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
         del logger
         return
@@ -411,52 +414,64 @@ def project_build_and_download(task_params:dict, msg_queue:multiprocessing.Queue
     # Step 2: Get IDE saved path
     ide_path = get_ide_path(project_id, logger)
     if not ide_path:
-        message = "Error"
+        message = {"status": "Error"}
         update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
         del logger
         return
 
     # Step 2: Using template file to generate main.c
-    message = time.time()
+    message = {
+        "status": "Running",
+        "timestamp": time.time()
+    }
     update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
     ret = main_file_generate(project_id, module_id, sub_id, logger)
     if not ret:
-        message = "Error"
+        message = {"status": "Error"}
         update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
         del logger
         return
 
     # Step 3: Generate xcl config files
-    message = time.time()
+    message = {
+        "status": "Running",
+        "timestamp": time.time()
+    }
     ret = xcl_file_generator(project_id, logger)
     if not ret:
-        message = "Error"
+        message = {"status": "Error"}
         update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
         del logger
         return
 
     env_set_up(project_id, logger)
     # Step 3: Build image
-    message = time.time()
+    message = {
+        "status": "Compiling",
+        "timestamp": time.time()
+    }
     update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
     ret = project_build(project_id, logger)
     if not ret:
-        message = "Error"
+        message = {"status": "Error"}
         update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
         del logger
         return
     
     # Step 4: Download image to DUT
-    message = time.time()
+    message = {
+        "status": "Debugging",
+        "timestamp": time.time()
+    }
     update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
     ret = img_download(project_id=project_id, logger=logger)
     if not ret:
-        message = "Error"
+        message = {"status": "Error"}
         update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
         del logger
         return
 
-    message = "Done"
+    message = {"status": "Done"}
     update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
     del logger
     return

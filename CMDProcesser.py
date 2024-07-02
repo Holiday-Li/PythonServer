@@ -133,7 +133,7 @@ class CMDProcesser:
         logger.info("Get task status, task_id={}".format(task_id))
         task_id = task_id
         if len(self.task_list) == 0:
-            logger.error("No task_list exists.")
+            logger.error("No task running.")
             return "None"
         # Get target task_info
         for task_info in self.task_list:
@@ -141,46 +141,42 @@ class CMDProcesser:
                 break
         # No target task found
         if task_info["task_id"] != task_id:
-            logger.info("No task exists, task_id: {}".format(task_id))
+            logger.error("Could not found target task, task_id: {}".format(task_id))
             return "None"
         # Task found but no sub-process object
         # This situation means that some issue happened in new process allocation
         if not task_info["process"]:
-            logger.info("No sub-process object exists, task_id: {}".format(task_id))
+            logger.error("The sub-process of task does not  exist, task_id: {}".format(task_id))
             return "Error"
         # The message of the task is empty
         if task_info["msg_queue"].empty():
             if not task_info["process"].is_alive():
-                logger.error("Message queue is empty and no proecss object exists, task_id: {}".format(task_id))
+                logger.error("Sub-process is not alive and the message queue is empty, task_id: {}".format(task_id))
                 return "Error"
             # The sub-process is running but no new status updated
             if (time.time() - 300) > task_info["timestamp"]:
                 logger.error("Task has not updated timestamp more than 5 mins, task_id: {}".format(task_id))
                 return "Timeout"
-            return "Running"
+            return task_info["status"]
         # The message queue is not empty, it means the sub-process has updated the status to the queue
+        lock = task_info["lock"]
+        lock.acquire()
+        try:
+            data = task_info["msg_queue"].get()
+        finally:
+            lock.release()
+        if "timestamp" in data:
+            task_info["timestamp"] = data["timestamp"]
+            if (time.time() - 300) > data["timestamp"]:
+                task_info["status"] = "Timeout"
+            else:
+                task_info["status"] = data["status"]
+            logger.info("Task_{} timestamp: {}, status: {}".format(task_id, data["timestamp"], data["status"]))
+        elif "status" in data:
+            task_info["status"] = data["status"]
         else:
-            lock = task_info["lock"]
-            lock.acquire()
-            try:
-                data = task_info["msg_queue"].get()
-            finally:
-                lock.release()
-            if isinstance(data, float):
-                timestamp = data
-                if (time.time() - 300) > timestamp:
-                    return "Timeout"
-                task_info["timestamp"] = timestamp
-                logger.info("Task still running, task_id:{}, timestamp: {}".format(task_id, timestamp))
-                return "Running"
-            elif isinstance(data, str):
-                response = data
-                if response != "Done":
-                    response = "Error"
-                logger.info("Task status: {}, task_id: {}".format(response, task_id))
-                return response
             logger.error("Unexpect error, task_id: {}".format(task_id))
-            return "Error"
+        return task_info["status"]
 
     def alloc_process_for_task(self, cmd, func, task_params):
         if self.running_task_count == self.max_task_count:
@@ -201,6 +197,7 @@ class CMDProcesser:
             "msg_queue": msg_queue,
             "lock": lock,
             "timestamp": time.time(),
+            "status": "Running"
         }
         self.task_list.append(task_info)
         self.running_task_count += 1
