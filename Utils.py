@@ -16,7 +16,8 @@ config_info = {}
 def get_config_info(logger:logging.Logger, config_file_path=None)->bool:
     global config_info
     if not config_file_path:
-        config_file_path = ".\\config.cfg"
+        base_path = get_current_dir_path()
+        config_file_path = os.path.join(base_path, "config.cfg")
     if not os.path.exists(config_file_path):
         logger.error("config file does not exist")
         return False
