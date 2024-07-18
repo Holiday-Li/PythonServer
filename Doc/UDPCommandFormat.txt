@@ -36,6 +36,8 @@ UDP交互指令：
 	返回信息：
 		None - 没有对应的任务
 		Running - 任务正在运行中
+		Compiling - 编译中
+		Debugging - 下载、debug中
 		Timeout - 执行超时
 		Done - 任务运行完成
 		Error - 任务异常
