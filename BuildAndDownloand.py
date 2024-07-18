@@ -1,6 +1,6 @@
 from datetime import datetime
 import multiprocessing.managers
-import os
+import os, sys
 import shutil
 import subprocess
 import time
@@ -152,7 +152,7 @@ def env_set_up(project_id:int, logger:logging.Logger):
     tool_path = "{}\\common\\bin".format(ide_path)
 
     logger.info("Setup env path: {}".format(tool_path))
-    os.putenv("path", tool_path)
+    os.environ['PATH'] = os.pathsep.join([tool_path, os.environ['PATH']])
     return
 
 
@@ -352,7 +352,27 @@ def xcl_file_generator(project_id:int, logger:logging.Logger)->bool:
     return ret
 
 
+def kill_running_process(sub_proc="CSpyBat.exe")->str:
+    cmd = "tasklist | findstr {}".format(sub_proc)
+    ret = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE, text=True)
+    if ret.stderr:
+        return ret.stderr
+    if ret.stdout.find(sub_proc) != -1:
+        cmd = "taskkill /f /im {}".format(sub_proc)
+        ret = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, text=True)
+        if ret.stderr:
+            return ret.stderr
+    return ""
+
+
+
 def img_download(project_id:int, logger:logging.Logger, compile_config="Debug")->bool:
+    err_msg = kill_running_process("CSpyBat.exe")
+    if err_msg:
+        logger.error("Kill CSpyBat error, err_msg:{}".format(err_msg))
+        return False
     project_path = get_project_path(project_id=project_id, logger=logger)
     if not project_path:
         logger.error("Could not found project_path, project_id:{}".format(project_id))
