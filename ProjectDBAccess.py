@@ -183,7 +183,7 @@ def get_node_name(project_id:int, module_id:str, sub_id:str, logger:logging.Logg
         logger.error("Connect database error")
         return None
 
-    sql = "SELECT NodName FROM TestCase WHERE MoubleID='{}' and SubID='{}'".format(module_id, sub_id)
+    sql = "SELECT NodName FROM TestCase WHERE ModuleID='{}' and SubID='{}'".format(module_id, sub_id)
     try:
         cursor.execute(sql)
     except:
