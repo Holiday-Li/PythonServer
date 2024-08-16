@@ -1,13 +1,18 @@
 Table_1 ProjectInformation项目信息
-+----+-------------+-------------+---------+----------+
-| ID | ProjectName | ProjectPath | idePath | TestType |
-+----+-------------+-------------+---------+----------+
++----+-------------+-------------+---------+----------+------------+
+| ID | ProjectName | ProjectPath | idePath | TestType | CompileCfg |
++----+-------------+-------------+---------+----------+------------+
 数据项描述:
 ID - 项目ID
 ProjectName - 项目名称，通常为ewp文件去除后缀后的文件名
 ProjectPath - 项目存储路径
 idePath - IAR开发工具安装路径
-TestType - 测试类型，目前暂定为空
+TestType - 测试类型
+        * CanTrigger - 由Can指令触发，对应函数ProcByCmd
+        * AutoProc - 自动执行，对应函数ProcBySeq
+CompileCfg - 编译配置，目前支持：
+        * Debug
+        * FlashDebug
 
 Table_2 TestCase测试用例表
 +--------+-------------+----------+-------+---------+----------+-------------+------------+--------------+--------+
