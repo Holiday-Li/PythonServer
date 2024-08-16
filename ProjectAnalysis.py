@@ -2,7 +2,8 @@ import os, logging
 import xml.etree.ElementTree as ET
 
 
-def get_ewp_file_path(project_path:str)->str:
+def get_ewp_path_list(project_path:str)->list:
+    path_list = []
     for root, _, files in os.walk(project_path):
         for file in files:
             file_path = os.path.join(root, file)
@@ -11,23 +12,40 @@ def get_ewp_file_path(project_path:str)->str:
             elif file_path.find("template") != -1:
                 continue
             if file_path.find(".ewp") != -1:
-                return file_path
-    return None
+                path_list.append(file_path)
+    return path_list
 
 
 def get_ewp_name(project_path:str, logger:logging.Logger)->str:
     # Get project config file
-    proj_file_path = get_ewp_file_path(project_path)
-    if not proj_file_path:
-        logger.error("Could not found project config file.")
+    ewp_path_list = get_ewp_path_list(project_path)
+    if len(ewp_path_list) != 1:
+        logger.error("Not only one ewq file exist.")
+        for ewp_path in ewp_path_list:
+            logger.error("ewp file: {}".format(ewp_path))
         logger.error("Project path: {}".format(project_path))
         return None
+    ewp_path = ewp_path_list[0]
     
     # Get project name.
-    project_path, proj_file_name = os.path.split(proj_file_path)
+    project_path, proj_file_name = os.path.split(ewp_path)
     ewp_name = proj_file_name[:proj_file_name.find(".ewp")]
     logger.info("Get ewp file name, name: {}".format(ewp_name))
     return ewp_name
+
+# Get custom argvars file path list in this project
+def get_ca_path_list(project_path:str)->list:
+    path_list = []
+    for root, _, files in os.walk(project_path):
+        for file in files:
+            file_path = os.path.join(root, file)
+            if file_path.find("example") != -1:
+                continue
+            elif file_path.find("template") != -1:
+                continue
+            if file_path.find(".custom_argvars") != -1:
+                path_list.append(file_path)
+    return path_list
 
 
 def get_core_arch(ewp_file_path:str, logger:logging.Logger)->str:
@@ -65,7 +83,10 @@ def get_file_base_in_project(project_path:str, file_name:str)->str:
     return base_path
 
 if __name__ == "__main__":
-    testStr = '"--jet_board_cfg=C:\\Users\\Administrator\\Documents\\02-SDK\\5_2_2\\emps_SLT_demo_20240402\\demos\\slt\\EWRISCV\\..\\..\\..\\IDE\\EWRISCV\\debugger\\ESWIN\\EAM2011.probeconfig" '
-    key, value = parse_key_value_str(testStr)
-    print("Key:{}".format(key))
-    print("Value:{}".format(value))
+    print("Test start")
+    project_path = "F:\\Work\\NECV\\E360\\E3_SSDK_PTG3.0_Source_Code\\ssdk"
+    print("ProjectPath: {}".format(project_path))
+    ca_list = get_ca_path_list(project_path=project_path)
+    print("---Result---")
+    for ca_file in ca_list:
+        print("Custom argvars file: {}".format(ca_file))

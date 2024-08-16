@@ -5,10 +5,10 @@ import shutil
 import subprocess
 import time
 import multiprocessing, logging
-from ProjectAnalysis import get_ewp_name, get_ewp_file_path, get_core_arch, get_file_base_in_project, parse_key_value_str
+from ProjectAnalysis import get_ewp_name, get_ewp_path_list, get_ca_path_list, get_core_arch, get_file_base_in_project, parse_key_value_str
 from Utils import get_current_dir_path
-from Logger import get_logger
-from ProjectDBAccess import get_project_path, get_ide_path, get_node_name
+from Logger import get_logger, clean_log_files
+from ProjectDBAccess import get_project_path, get_ide_path, get_node_name, get_compile_cfg, get_test_type
 
 
 '''
@@ -73,6 +73,7 @@ def get_target_file_path(project_id:int, logger:logging.Logger)->str:
 
     target_file_name = ewp_name + ".c"
     target_file_path = None
+    logger.info("ProjectPath: {}".format(project_path))
     for root, _, files in os.walk(project_path):
         for file in files:
             if file == target_file_name:
@@ -126,6 +127,11 @@ def main_file_generate(project_id:int, module_id:str, sub_id:str, logger:logging
         logger.error("Get test node name error.")
         return False
     
+    test_type = get_test_type(project_id=project_id, logger=logger)
+    if not test_type:
+        logger.error("Get test type error.")
+        return False
+
     work_file_path = target_file_path + "_working"
     shutil.copy(template_file_path, work_file_path)
     with open(work_file_path, "r") as f:
@@ -135,6 +141,13 @@ def main_file_generate(project_id:int, module_id:str, sub_id:str, logger:logging
     for line in lines:
         if line.find("%task_name%") != -1:
             new_lines.append(line.replace("%task_name%", test_node_name))
+        elif line.find("%proc_function%") != -1:
+            if test_type == "CanTrigger":
+                new_lines.append(line.replace("%proc_function%", "ProcByCmd()"))
+            elif test_type == "AutoProc":
+                new_lines.append(line.replace("%proc_function%", "ProcBySeq()"))
+            else:
+                logger.error("Invalid test_type.")
         else:
             new_lines.append(line)
 
@@ -161,11 +174,27 @@ def project_build(project_id:int, logger:logging.Logger, compile_config:str="Deb
     if not project_path:
         logger.error("Can not find project path, project_id:{}".format(project_id))
         return False
-    ewp_file_path = get_ewp_file_path(project_path)
-    if not ewp_file_path:
+    # Find ewp config file
+    ewp_path_list = get_ewp_path_list(project_path)
+    if len(ewp_path_list) != 1:
         logger.error("Can not find *.ewp file.")
         return False
+    ewp_file_path = ewp_path_list[0]
+
+    # Find custom argvars config file
+    ca_path_list = get_ca_path_list(project_path)
+    if len(ca_path_list) > 1:
+        logger.error("Found more than 1 custom_argvars file exist, please have a check.")
+        return False
+    elif len(ca_path_list) == 1:
+        ca_path = ca_path_list[0]
+    else:
+        ca_path = None
+
+    # Generate build command
     cmd = "iarbuild " + ewp_file_path + " -make " + compile_config
+    if ca_path:
+        cmd = cmd + " -varfile " + ca_path
     logger.info("Command:{}".format(cmd))
     ret = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, text=True)
@@ -179,6 +208,8 @@ def project_build(project_id:int, logger:logging.Logger, compile_config:str="Deb
 def driver_xcl_file_generate(project_path:str, logger:logging.Logger, compile_config:str="Debug")->bool:
     file_name = "auto_download.driver.xcl"
     ewp_name = get_ewp_name(project_path, logger)
+    if not ewp_name:
+        return False
     orignal_file_name = ewp_name + "." + compile_config + ".driver.xcl"
 
     base_path = get_file_base_in_project(project_path=project_path, file_name=orignal_file_name)
@@ -239,6 +270,149 @@ def driver_xcl_file_generate(project_path:str, logger:logging.Logger, compile_co
     return True
 
 
+def get_target_file_in_ide(target_file:str, ide_path:str, logger:logging.Logger)->str:
+    target_file_path = ""
+    for root, _, files in os.walk(ide_path):
+        if target_file_path:
+            break
+        for file in files:
+            if file != target_file:
+                continue
+            target_file_path = os.path.join(root, file)
+            logger.info("Found target file - {}, path:{}".format(target_file, target_file_path))
+            break
+    return target_file_path
+
+
+def get_proc_path_in_ide(core_arch:str, ide_path:str, logger:logging.Logger)->str:
+    if core_arch == "RISCV":
+        proc_dll = "riscvproc.dll"
+    elif core_arch == "ARM":
+        proc_dll = "armproc.dll"
+    else:
+        logger.error("Invalid core architecture.")
+        return False
+    proc_path = get_target_file_in_ide(target_file=proc_dll, ide_path=ide_path, logger=logger)
+    if not proc_path:
+        logger.error("Could not found proc dll file - *{}*".format(proc_dll))
+    return proc_path
+
+
+def get_jet_path_in_ide(core_arch:str, ide_path:str, logger:logging.Logger)->str:
+    if core_arch == "RISCV":
+        jet_dll = "riscvijet.dll"
+    elif core_arch == "ARM":
+        jet_dll = "armjlink.dll"
+    else:
+        logger.error("Invalid core architecture.")
+        return False
+    jet_path = get_target_file_in_ide(target_file=jet_dll, ide_path=ide_path, logger=logger)
+    if not jet_path:
+        logger.error("Could not found jet dll file - *{}*".format(jet_dll))
+    return jet_path
+
+
+def get_orignal_loader_path(orignal_file:str)->str:
+    with(open(orignal_file, "r+")) as fp:
+        lines = fp.readlines()
+    loader_path = ""
+    value = ""
+    for line in lines:
+        if line.find("--flash_loader") != -1:
+            _, value = parse_key_value_str(line)
+            break
+    if value:
+        loader_path = value.replace('"', '')
+    return loader_path
+
+
+def get_orignal_output_path(orignal_file:str)->str:
+    with(open(orignal_file, "r+")) as fp:
+        lines = fp.readlines()
+    output_path = ""
+    for line in lines:
+        if line.find("Exe") != -1:
+            output_path = line.replace("\n", "").replace(" ", "").replace('"', '')
+    return output_path
+
+
+def get_output_path(project_path:str, orignal_file:str, logger:logging.Logger)->str:
+    orignal_output_path = get_orignal_output_path(orignal_file)
+    if not orignal_output_path:
+        logger.error("Could not found output path in orignal file - *{}*".format(orignal_file))
+        return ""
+    _, output_file = os.path.split(orignal_output_path)
+
+    base_path = ""
+    for root, dirs, _ in os.walk(project_path):
+        if base_path:
+            break
+        for dir in dirs:
+            if dir != "Exe":
+                continue
+            temp_path = os.path.join(root, dir)
+            relative_path = temp_path[len(project_path):]
+            logger.info("Output relative path: {}".format(relative_path))
+            if orignal_output_path.find(relative_path) != -1:
+                base_path = temp_path
+                logger.info("Found output base path, path:{}".format(base_path))
+                break
+    if not base_path:
+        logger.error("Could not found base path in project_path")
+        logger.error("ProjectPath:{}".format(project_path))
+        logger.error("OutputName:{}".format(output_file))
+        return ""
+    output_path = os.path.join(base_path, output_file)
+    return output_path
+
+
+def get_orignal_loader_path(orignal_file:str)->str:
+    with(open(orignal_file, "r+")) as fp:
+        lines = fp.readlines()
+    loader_path = ""
+    for line in lines:
+        if line.find("--flash_loader") != -1:
+            _, value = parse_key_value_str(line)
+            loader_path = value.replace("\n", "").replace(" ", "").replace('"', '')
+    return loader_path
+
+
+def get_flashloader_path(project_path:str, orignal_file:str, logger:logging.Logger)->str:
+    orignal_loader_path = get_orignal_loader_path(orignal_file)
+    if not orignal_loader_path:
+        logger.error("Could not found orignal loader path - {}".format(orignal_file))
+        return ""
+
+    loader_path = ""
+    for root, _, files in os.walk(project_path):
+        if loader_path:
+            break
+        for file in files:
+            if file.find(".board") == -1 or root.find("flashloader") == -1:
+                continue
+            temp_path = os.path.join(root, file)
+            relative_path = temp_path[len(project_path):]
+            logger.info("flashloader relative path: {}".format(relative_path))
+            if orignal_loader_path.find(relative_path) != -1:
+                loader_path = temp_path
+                break
+    return loader_path
+
+
+def get_plugin_path_in_ide(core_arch:str, ide_path:str, logger:logging.Logger)->str:
+    if core_arch == "RISCV":
+        plugin_dll = "riscvbat.dll"
+    elif core_arch == "ARM":
+        plugin_dll = "armLibsupportUniversal.dll"
+    else:
+        logger.error("Invalid core architecture.")
+        return False
+    plugin_path = get_target_file_in_ide(target_file=plugin_dll, ide_path=ide_path, logger=logger)
+    if not plugin_path:
+        logger.error("Could not found plugin dll file - *{}*".format(plugin_dll))
+    return plugin_path
+
+
 def general_xcl_file_generate(project_path:str, ide_path:str, logger:logging.Logger, compile_config:str="Debug")->bool:
     file_name = "auto_download.general.xcl"
     ewp_name = get_ewp_name(project_path, logger)
@@ -247,7 +421,7 @@ def general_xcl_file_generate(project_path:str, ide_path:str, logger:logging.Log
 
     base_path = get_file_base_in_project(project_path=project_path, file_name=orignal_file_name)
     if not base_path:
-        logger.error("Could not find base path.")
+        logger.error("Could not find base path, orignal file - *{}*".format(orignal_file_name))
         return False
 
     file_path = os.path.join(base_path, file_name)
@@ -255,81 +429,39 @@ def general_xcl_file_generate(project_path:str, ide_path:str, logger:logging.Log
         logger.info("General xcl file already exist, path: {}".format(file_path))
         os.remove(file_path)
 
-    ewp_file_path = get_ewp_file_path(project_path)
-    if not ewp_file_path:
+    ewp_path_list = get_ewp_path_list(project_path)
+    if len(ewp_path_list) != 1:
         logger.error("Could not find *.ewp file.")
         return False
+    ewp_file_path = ewp_path_list[0]
     
     core_arch = get_core_arch(ewp_file_path=ewp_file_path, logger=logger)
     logger.info("CoreArch: {}".format(core_arch))
-    if core_arch == "RISCV":
-        proc_dll = "riscvproc.dll"
-        jet_dll = "riscvijet.dll"
-        plugin_dll = "riscvbat.dll"
-    else:
-        logger.error("Invalid core architecture.")
-        return False
-    
-    proc_path = None
-    jet_path = None
-    plugin_path = None
-    logger.info("Search target files in IDE: {}".format(ide_path))
-    for root, _, files in os.walk(ide_path):
-        for file in files:
-            if file == proc_dll:
-                if not proc_path:
-                    proc_path = os.path.join(root, file)
-                    logger.info("Found proc_path, path:{}".format(proc_path))
-                else:
-                    logger.info("ProcFile already exists.")
-            elif file == jet_dll:
-                if not jet_path:
-                    jet_path = os.path.join(root, file)
-                    logger.info("Found jet_path, path:{}".format(jet_path))
-                else:
-                    logger.info("JetPath already exists.")
-            elif file == plugin_dll:
-                if not plugin_path:
-                    plugin_path = os.path.join(root, file)
-                    logger.info("Found plugin_path, path:{}".format(plugin_path))
-                else:
-                    logger.info("PluginPath already exists.")
-    output_path = None
-    flashloader_path = None
-    for root, dirs, files in os.walk(project_path):
-        for dir in dirs:
-            if dir == "Exe":
-                if not output_path:
-                    output_path = os.path.join(root, dir)
-                    logger.info("Found output_path, path:{}".format(output_path))
-        for file in files:
-            if file.find(".board") != -1 and root.find("flashloader") != -1:
-                if not flashloader_path:
-                    flashloader_path = os.path.join(root, file)
-                    logger.info("Found flashloader_path, path:{}".format(flashloader_path))
 
+    logger.info("Search target files in IDE: {}".format(ide_path))
+    proc_path = get_proc_path_in_ide(core_arch=core_arch, ide_path=ide_path, logger=logger)
+    if not proc_path:
+        return False
+    jet_path = get_jet_path_in_ide(core_arch=core_arch, ide_path=ide_path, logger=logger)
+    if not jet_path:
+        return False
+    plugin_path = get_plugin_path_in_ide(core_arch=core_arch, ide_path=ide_path, logger=logger)
+    if not plugin_path:
+        return False
 
     orignal_file_path = os.path.join(base_path, orignal_file_name)
-    logger.debug("Original general xcl file path: {}".format(orignal_file_path))
-    output_file = None
-    with(open(orignal_file_path, "r")) as fp:
-        data_lines = fp.readlines()
-        for data_line in data_lines:
-            if data_line.find("Exe") != -1:
-                logger.info("Orignal output path: *{}*".format(data_line))
-                old_path = data_line.replace("\n", "").replace(" ", "").replace('"', '')
-                _, output_file = os.path.split(old_path)
-                logger.info("Output file: {}".format(output_file))
-                break
-    if not output_file:
-        logger.error("Could not found orignal output file name.")
+    output_path = get_output_path(project_path=project_path, orignal_file=orignal_file_path, logger=logger)
+    if not output_path:
         return False
+    flashloader_path = get_flashloader_path(project_path=project_path, orignal_file=orignal_file_path, logger=logger)
+
     lines = []
     lines.append('"{}" \n\n'.format(proc_path))
     lines.append('"{}" \n\n'.format(jet_path))
-    lines.append('"{}\\{}" \n\n'.format(output_path, output_file))
+    lines.append('"{}" \n\n'.format(output_path))
     lines.append('--plugin="{}" \n\n'.format(plugin_path))
-    lines.append('--flash_loader="{}" \n\n'.format(flashloader_path))
+    if flashloader_path:
+        lines.append('--flash_loader="{}" \n\n'.format(flashloader_path))
 
     with(open(file_path, "w+")) as fp:
         fp.writelines(lines)
@@ -338,17 +470,17 @@ def general_xcl_file_generate(project_path:str, ide_path:str, logger:logging.Log
     return True
 
 
-def xcl_file_generator(project_id:int, logger:logging.Logger)->bool:
+def xcl_file_generator(project_id:int, compile_cfg:str, logger:logging.Logger)->bool:
     project_path = get_project_path(project_id, logger)
     if not project_path:
         return False
     ide_path = get_ide_path(project_id, logger)
     if not ide_path:
         return False
-    ret = driver_xcl_file_generate(project_path, logger)
+    ret = driver_xcl_file_generate(project_path, logger, compile_config=compile_cfg)
     if not ret:
         return ret
-    ret = general_xcl_file_generate(project_path, ide_path, logger)
+    ret = general_xcl_file_generate(project_path, ide_path, logger, compile_config=compile_cfg)
     return ret
 
 
@@ -398,7 +530,11 @@ def img_download(project_id:int, logger:logging.Logger, compile_config="Debug")-
     cmd = ("cspybat -f " + general_config_path + " --download_only --backend -f "
            + driver_config_path)
     '''
-    cmd = ("cspybat -f " + general_config_path + " --backend -f " + driver_config_path)
+    if compile_config == "Debug":
+        cmd = ("cspybat -f " + general_config_path + " --backend -f " + driver_config_path)
+    else:
+        cmd = ("cspybat -f " + general_config_path + " --download_only --backend -f "
+               + driver_config_path)
     # '''
     logger.info("Command: {}".format(cmd))
     ret = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
@@ -457,7 +593,8 @@ def project_build_and_download(task_params:dict, msg_queue:multiprocessing.Queue
         "status": "Running",
         "timestamp": time.time()
     }
-    ret = xcl_file_generator(project_id, logger)
+    compile_config = get_compile_cfg(project_id=project_id, logger=logger)
+    ret = xcl_file_generator(project_id, compile_config, logger)
     if not ret:
         message = {"status": "Error"}
         update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
@@ -471,7 +608,7 @@ def project_build_and_download(task_params:dict, msg_queue:multiprocessing.Queue
         "timestamp": time.time()
     }
     update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
-    ret = project_build(project_id, logger)
+    ret = project_build(project_id, logger, compile_config)
     if not ret:
         message = {"status": "Error"}
         update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
@@ -484,7 +621,7 @@ def project_build_and_download(task_params:dict, msg_queue:multiprocessing.Queue
         "timestamp": time.time()
     }
     update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
-    ret = img_download(project_id=project_id, logger=logger)
+    ret = img_download(project_id=project_id, logger=logger, compile_config=compile_config)
     if not ret:
         message = {"status": "Error"}
         update_queue_message(msg_queue=msg_queue, message=message, lock=lock, logger=logger)
@@ -497,17 +634,65 @@ def project_build_and_download(task_params:dict, msg_queue:multiprocessing.Queue
     return
 
 
-def clean_build_image(project_id:int, logger:logging.Logger):
+def clean_build_image(project_id:int, compile_cfg:str, logger:logging.Logger):
     env_set_up(project_id=project_id, logger=logger)
     project_path = get_project_path(project_id=project_id, logger=logger)
-    ewp_file_path = get_ewp_file_path(project_path)
-    if not ewp_file_path:
+    ewp_path_list = get_ewp_path_list(project_path)
+    if len(ewp_path_list) != 1:
         logger.error("Can not find *.ewp file.")
         return False
-    cmd = "iarbuild " + ewp_file_path + " -clean Debug"
+    ewp_file_path = ewp_path_list[0]
+    cmd = "iarbuild " + ewp_file_path + " -clean {}".format(compile_cfg)
     logger.info("Command:{}".format(cmd))
     ret = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, text=True)
     logger.info("Output:{}".format(ret.stdout))
     logger.info("ErrMsg:{}".format(ret.stderr))
     return
+
+
+def E360_test():
+    clean_log_files()
+    logger = get_logger("E3640_Test")
+    project_id = 2
+    code_path = get_project_path(project_id, logger)
+    if not code_path:
+        logger.error("get_project_path error.")
+        return
+
+    ide_path = get_ide_path(project_id, logger)
+    if not ide_path:
+        logger.error("get_ide_path error.")
+        return
+    
+    module_id = "MODULE_ID_SM4"
+    # module_id = "MODULE_ID_RSA"
+    sub_id = "0x0001"
+    ret = main_file_generate(project_id, module_id, sub_id, logger)
+    if not ret:
+        logger.error("main_file_generate error.")
+        return
+    
+    compile_config = get_compile_cfg(project_id=project_id, logger=logger)
+    ret = xcl_file_generator(project_id, compile_config, logger)
+    if not ret:
+        logger.error("xcl_file_generator error.")
+        return
+    
+    env_set_up(project_id, logger)
+    # clean_build_image(project_id=project_id, compile_cfg=compile_config, logger=logger)
+
+    # '''
+    ret = project_build(project_id, logger, compile_config)
+    if not ret:
+        logger.error("project_build error.")
+        return
+    # '''
+    ret = img_download(project_id=project_id, logger=logger, compile_config=compile_config)
+    if not ret:
+        logger.error("img_download error.")
+        return
+
+
+if __name__ == "__main__":
+    E360_test()

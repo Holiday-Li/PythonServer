@@ -29,100 +29,6 @@ def disconnect_database(conn:pyodbc.Connection, cursor:pyodbc.Cursor):
     return
 
 
-def set_project_path(project_id:int, project_path:str, logger:logging.Logger,
-                     mdb_file_name:str="caseManage .mdb")->str:
-    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
-    if not conn or not cursor:
-        logger.error("Connect database error")
-        return False
-
-    sql = "UPDATE ProjectInformation SET ProjectPath='{}' WHERE ID={}".format(project_path, project_id)
-    try:
-        cursor.execute(sql)
-    except:
-        logger.error("Set project path error, SQL:{}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
-        return False
-
-    conn.commit()
-    return True
-
-
-def get_project_path(project_id:int, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
-    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
-    if not conn or not cursor:
-        logger.error("Connect database error")
-        return None
-
-    sql = "SELECT ProjectPath FROM ProjectInformation WHERE ID={}".format(project_id)
-    try:
-        cursor.execute(sql)
-    except:
-        logger.error("Get project path, SQL excute error. sql:{}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
-        return None
-
-    rows = cursor.fetchall()
-    if len(rows) != 1:
-        logger.error("Get project path error, result number:{}".format(len(rows)))
-        disconnect_database(conn=conn, cursor=cursor)
-        return None
-    project_path = rows[0][0]
-
-    disconnect_database(conn=conn, cursor=cursor)
-    return project_path
-
-
-def get_ide_path(project_id:str, logger: logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
-    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
-    if not conn or not cursor:
-        logger.error("Connect database error")
-        return None
-
-    sql = "SELECT idePath FROM ProjectInformation WHERE ID={}".format(project_id)
-    try:
-        cursor.execute(sql)
-    except:
-        logger.error("Get IDE path error, result number:{}".format(len(rows)))
-        disconnect_database(conn=conn, cursor=cursor)
-        return None
-
-    rows = cursor.fetchall()
-    if len(rows) != 1:
-        logger.error("Get IDE path error, result number:{}".format(len(rows)))
-        disconnect_database(conn=conn, cursor=cursor)
-        return None
-    ide_path = rows[0][0]
-
-    disconnect_database(conn=conn, cursor=cursor)
-    return ide_path
-
-
-def get_project_name(project_id:int, logger:logging.Logger, mdb_file_name="caseManage .mdb")->str:
-    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
-    if not conn or not cursor:
-        logger.error("Connect database error")
-        return None
-
-    sql = "SELECT ProjectName FROM ProjectInformation WHERE ID={}".format(project_id)
-    try:
-        cursor.execute(sql)
-    except:
-        logger.error("Get project name error, SQL:{}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
-        return None
-
-    rows = cursor.fetchall()
-    if len(rows) != 1:
-        logger.error("Get project name error, get item: {}".format(len(rows)))
-        disconnect_database(conn=conn, cursor=cursor)
-        return None
-
-    project_name = rows[0][0]
-    disconnect_database(conn=conn, cursor=cursor)
-    return project_name
-
-
 def get_count_by_name(project_name:str, logger:logging.Logger, mdb_file_name="caseManage .mdb")->int:
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
@@ -148,59 +54,6 @@ def get_count_by_name(project_name:str, logger:logging.Logger, mdb_file_name="ca
     return count
 
 
-def get_code_source(project_id:int, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
-    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
-    if not conn or not cursor:
-        logger.error("Connect database error")
-        return None
-
-    sql = "SELECT SourcePath FROM ProjectInformation WHERE ID={}".format(project_id)
-    try:
-        cursor.execute(sql)
-    except:
-        logger.error("Get code source error, SQL:{}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
-        return None
-
-    rows = cursor.fetchall()
-    if len(rows) != 1:
-        logger.error("Get code source error, get item: {}".format(len(rows)))
-        disconnect_database(conn=conn, cursor=cursor)
-        return None
-
-    code_source = rows[0][0]
-    disconnect_database(conn=conn, cursor=cursor)
-    return code_source
-
-
-def get_node_name(project_id:int, module_id:str, sub_id:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
-    project_name = get_project_name(project_id=project_id, logger=logger)
-    if not project_name:
-        logger.error("Get project_name error, project_id={}".format(project_id))
-        return None
-    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
-    if not conn or not cursor:
-        logger.error("Connect database error")
-        return None
-
-    sql = "SELECT NodName FROM TestCase WHERE ModuleID='{}' and SubID='{}'".format(module_id, sub_id)
-    try:
-        cursor.execute(sql)
-    except:
-        logger.error("Execute SQL error, sql={}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
-        return None
-    rows = cursor.fetchall()
-    if len(rows) != 1:
-        logger.error("Get node name error, get item: {}".format(len(rows)))
-        disconnect_database(conn=conn, cursor=cursor)
-        return None
-
-    node_name = rows[0][0]
-    disconnect_database(conn=conn, cursor=cursor)
-    return node_name
-
-
 #-------------------------------------------- Test function ------------------------------------------------#
 def add_new_colum(table_name:str, colum_name:str, colum_type:str,
                   logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->bool:
@@ -222,7 +75,7 @@ def add_new_colum(table_name:str, colum_name:str, colum_type:str,
     return True
 
 
-def get_colums_name(table_name:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb") -> list:
+def get_colums_info(table_name:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb") -> list:
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
@@ -235,19 +88,24 @@ def get_colums_name(table_name:str, logger:logging.Logger, mdb_file_name:str="ca
         disconnect_database(conn=conn, cursor=cursor)
         return None
 
-    columns_name = []
+    columns_info = []
     for column in columns:
-        columns_name.append(column.column_name)
+        column_info = {
+            "name": column.column_name,
+            "type": column.type_name,
+        }
+        # columns_name.append(column.column_name)
+        columns_info.append(column_info)
 
     disconnect_database(conn=conn, cursor=cursor)
-    return columns_name
+    return columns_info
 
 
 def show_table_column(table_name:str, logger:logging.Logger):
-    columns_name = get_colums_name(table_name=table_name, logger=logger)
+    columns_info = get_colums_info(table_name=table_name, logger=logger)
     print("TableName:{}".format(table_name))
-    for column_name in columns_name:
-        print("\tColumnName:*{}*".format(column_name))
+    for column_info in columns_info:
+        print("\tColumnName:*{}* - type:*{}*".format(column_info["name"], column_info["type"]))
     return
 
 
@@ -359,13 +217,25 @@ def show_table_info_table(table_name:str, mdb_file_name:str="caseManage .mdb"):
     disconnect_database(conn=conn, cursor=cursor)
     return True
 
-def update_code_source(project_id:int, code_source:str, mdb_file_name:str="caseManage .mdb")->bool:
+
+def update_item_value(table_name:str,
+                      base_key:str,
+                      base_value,
+                      target_key:str,
+                      target_value:str,
+                      logger:logging.Logger,
+                      mdb_file_name:str="caseManage .mdb")->bool:
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
         return False
 
-    sql="UPDATE ProjectInformation SET SourcePath='{}' WHERE ID={}".format(code_source, project_id)
+    if isinstance(base_value, str):
+        sql="UPDATE {table_name} SET {target_key}='{target_value}' WHERE {base_key}='{base_value}'".format(
+            table_name=table_name, target_key=target_key, target_value=target_value, base_key=base_key, base_value=base_value)
+    else:
+        sql="UPDATE {table_name} SET {target_key}='{target_value}' WHERE {base_key}={base_value}".format(
+            table_name=table_name, target_key=target_key, target_value=target_value, base_key=base_key, base_value=base_value)
     try:
         cursor.execute(sql)
     except:
@@ -378,15 +248,247 @@ def update_code_source(project_id:int, code_source:str, mdb_file_name:str="caseM
     return True
 
 
+def get_item_value(table_name:str, target_key, base_key:str, base_value, logger:logging.Logger, mdb_file_name:str="caseManage .mdb"):
+    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
+    if not conn or not cursor:
+        logger.error("Connect database error")
+        return None
+
+    if isinstance(base_value, str):
+        sql = "SELECT {target_key} FROM {table_name} WHERE {base_key}='{base_value}'".format(
+            table_name=table_name, target_key=target_key, base_key=base_key, base_value=base_value
+        )
+    else:
+        sql = "SELECT {target_key} FROM {table_name} WHERE {base_key}={base_value}".format(
+            table_name=table_name, target_key=target_key, base_key=base_key, base_value=base_value
+        )
+
+    try:
+        cursor.execute(sql)
+    except:
+        logger.error("Get code source error, SQL:{}".format(sql))
+        disconnect_database(conn=conn, cursor=cursor)
+        return None
+
+    rows = cursor.fetchall()
+    if len(rows) != 1:
+        logger.error("Get code source error, get item: {}".format(len(rows)))
+        disconnect_database(conn=conn, cursor=cursor)
+        return None
+
+    target_value = rows[0][0]
+    disconnect_database(conn=conn, cursor=cursor)
+    return target_value
+
+
+def clean_item_value(table_name:str, target_key:str, base_key:str, base_value, logger:logging.Logger, mdb_file_name:str="caseManage .mdb"):
+    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
+    if not conn or not cursor:
+        logger.error("Connect database error")
+        return False
+
+    if isinstance(base_value, str):
+        sql = "UPDATE {table_name} SET {target_key}=null WHERE {base_key}='{base_value}'".format(
+            table_name=table_name, target_key=target_key, base_key=base_key, base_value=base_value
+        )
+    else:
+        sql = "UPDATE {table_name} SET {target_key}=null WHERE {base_key}={base_value}".format(
+            table_name=table_name, target_key=target_key, base_key=base_key, base_value=base_value
+        )
+    try:
+        cursor.execute(sql)
+    except:
+        logger.error("Update code source error, SQL:{}".format(sql))
+        disconnect_database(conn=conn, cursor=cursor)
+        return False
+    conn.commit()
+
+    disconnect_database(conn=conn, cursor=cursor)
+    return True
+
+
+def get_project_id_by_name(project_name:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+    table_name = "ProjectInformation"
+    base_key = "ProjectName"
+    target_key = "ID"
+    return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_name, logger=logger)
+
+
+def update_item_by_project_id(project_id:str, item_key:str, item_value:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->bool:
+    table_name = "ProjectInformation"
+    base_key = 'ID'
+    return update_item_value(table_name=table_name, base_key=base_key, base_value=project_id,
+                             target_key=item_key, target_value=item_value, logger=logger)
+
+
+def update_item_by_project_name(project_name:str, item_key:str, item_value:str, logger:logging.Logger)->bool:
+    project_id = get_project_id_by_name(project_name=project_name, logger=logger)
+    return update_item_by_project_id(project_id=project_id, item_key=item_key, item_value=item_value, logger=logger)
+
+
+def update_code_source(project_id:int, code_source:str, logger:logging.Logger)->bool:
+    return update_item_by_project_id(project_id=project_id, item_key="SourcePath", item_value=code_source, logger=logger)
+
+
+def update_compile_config_by_project_name(project_name:str, compile_cfg:str, logger:logging.Logger):
+    project_id = get_project_id_by_name(project_name=project_name, logger=logger)
+    return update_item_by_project_id(project_id=project_id, item_key="CompileCfg", item_value=compile_cfg, logger=logger)
+
+
+def update_test_type_by_prject_name(project_name:str, test_type:str, logger:logging.Logger):
+    project_id = get_project_id_by_name(project_name=project_name, logger=logger)
+    return update_item_by_project_id(project_id=project_id, item_key="TestType", item_value=test_type, logger=logger)
+
+
+def get_test_type(project_id:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb"):
+    table_name = "ProjectInformation"
+    base_key = "ID"
+    target_key = "TestType"
+    return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
+
+def get_compile_cfg(project_id:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb"):
+    table_name = "ProjectInformation"
+    base_key = "ID"
+    target_key = "CompileCfg"
+    return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
+
+
+def set_code_source(project_id:int, code_source:str, logger:logging.Logger,
+                     mdb_file_name:str="caseManage .mdb")->str:
+    return update_item_by_project_id(project_id=project_id, item_key="SourcePath", item_value=code_source, logger=logger)
+
+
+def get_code_source(project_id:int, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+    table_name = "ProjectInformation"
+    base_key = "ID"
+    target_key = "SourcePath"
+    return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
+
+
+def get_project_name(project_id:int, logger:logging.Logger, mdb_file_name="caseManage .mdb")->str:
+    table_name = "ProjectInformation"
+    base_key = "ID"
+    target_key = "ProjectName"
+    return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
+
+
+def set_project_path(project_id:int, project_path:str, logger:logging.Logger,
+                     mdb_file_name:str="caseManage .mdb")->str:
+    return update_item_by_project_id(project_id=project_id, item_key="ProjectPath", item_value=project_path, logger=logger)
+
+
+def get_project_path(project_id:int, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+    table_name = "ProjectInformation"
+    base_key = "ID"
+    target_key = "ProjectPath"
+    return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
+
+
+def set_ide_path(project_id:int, ide_path:str, logger:logging.Logger,
+                 mdb_file_name:str="caseManage .mdb")->str:
+    return update_item_by_project_id(project_id=project_id, item_key="idePath", item_value=ide_path, logger=logger)
+
+
+def get_ide_path(project_id:str, logger: logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+    table_name = "ProjectInformation"
+    base_key = "ID"
+    target_key = "idePath"
+    return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
+
+
+def get_node_name(project_id:int, module_id:str, sub_id:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+    project_name = get_project_name(project_id=project_id, logger=logger)
+    if not project_name:
+        logger.error("Get project_name error, project_id={}".format(project_id))
+        return None
+    conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
+    if not conn or not cursor:
+        logger.error("Connect database error")
+        return None
+
+    sql = "SELECT NodName FROM TestCase WHERE ModuleID='{}' and SubID='{}'".format(module_id, sub_id)
+    try:
+        cursor.execute(sql)
+    except:
+        logger.error("Execute SQL error, sql={}".format(sql))
+        disconnect_database(conn=conn, cursor=cursor)
+        return None
+    rows = cursor.fetchall()
+    if len(rows) != 1:
+        logger.error("Get node name error, get item: {}".format(len(rows)))
+        disconnect_database(conn=conn, cursor=cursor)
+        return None
+
+    node_name = rows[0][0]
+    disconnect_database(conn=conn, cursor=cursor)
+    return node_name
+
+
+def debug_show_table_info(logger):
+    table_name = "ProjectInformation"
+    # table_name = "TestCase"
+    show_table_info_table(table_name=table_name)
+    show_table_column(table_name=table_name, logger=logger)
+    return
+
+
+def debug_add_compile_cfg_for_project_info(logger):
+    table_name = "ProjectInformation"
+    debug_show_table_info(logger)
+    add_new_colum(table_name=table_name, colum_name="CompileCfg", colum_type="varchar(32)", logger=logger)
+    show_table_column(table_name=table_name, logger=logger)
+    update_compile_config_by_project_name(project_name="EAM2011", compile_cfg="Debug", logger=logger)
+    update_compile_config_by_project_name(project_name="E3640", compile_cfg="FlashDebug", logger=logger)
+    debug_show_table_info(logger)
+    return
+
+
+def debug_add_test_type_for_project_info(logger):
+    table_name = "ProjectInformation"
+    debug_show_table_info(logger)
+    update_test_type_by_prject_name(project_name="EAM2011", test_type="CanTrigger", logger=logger)
+    update_test_type_by_prject_name(project_name="E3640", test_type="AutoProc", logger=logger)
+    debug_show_table_info(logger)
+    return
+
+
+def debug_check_compile_cfg(logger):
+    compile_cfg = get_compile_cfg(project_id="1", logger=logger)
+    print("EAM2011 compile config: *{}*".format(compile_cfg))
+    compile_cfg = get_compile_cfg(project_id="2", logger=logger)
+    print("E360 compile config: *{}*".format(compile_cfg))
+
+
+def debug_get_test_node_name(logger):
+    # Project - E3640
+    project_id="2"
+    module_id = "MODULE_ID_SM4"
+    sub_id = "0x0001"
+    test_node_name = get_node_name(project_id=project_id, module_id=module_id, sub_id=sub_id, logger=logger)
+    print("Module_id = {}, sub_id = {}, test_node = \"{}\"".format(module_id, sub_id, test_node_name))
+    module_id = "MODULE_ID_RSA"
+    sub_id = "0x0001"
+    test_node_name = get_node_name(project_id=project_id, module_id=module_id, sub_id=sub_id, logger=logger)
+    print("Module_id = {}, sub_id = {}, test_node = \"{}\"".format(module_id, sub_id, test_node_name))
+
 if __name__ == "__main__":
     clean_log_files()
     logger = get_logger("DBA_Log")
-    # table_name = "ProjectInformation"
-    table_name = "TestCase"
-    show_table_info_table(table_name=table_name)
-    show_table_column(table_name=table_name, logger=logger)
+    # debug_get_test_node_name(logger)
+    # debug_add_test_type_for_project_info(logger)
+    #clean_item_value(table_name="ProjectInformation", target_key="ProjectPath", base_key="ID", base_value=2, logger=logger)
+    set_project_path(2, "", logger)
+    debug_show_table_info(logger=logger)
+
+    
+
+    # add_new_colum(table_name=table_name, colum_name="CompileCfg", colum_type="varchar(32)", logger=logger)
+    # show_table_column(table_name=table_name, logger=logger)
+    # update_compile_config_by_project_name(project_name="EAM2011", compile_cfg="Debug", logger=logger)
+    # update_compile_config_by_project_name(project_name="E3640", compile_cfg="FlashDebug", logger=logger)
+    # show_table_info_table(table_name=table_name)
     # count = get_count_by_name(project_name="GitTest", logger=logger)
     # print("Rows Type: {}".format(type(count)))
     # print("Rows:\n\t{}".format(count))
-    node_name = get_node_name(project_id=1, module_id="MODULE_ID_CMU", sub_id="0x0001", logger=logger)
-    print("node_name = {}".format(node_name))
+    # node_name = get_node_name(project_id=1, module_id="MODULE_ID_CMU", sub_id="0x0001", logger=logger)
+    # print("node_name = {}".format(node_name))
