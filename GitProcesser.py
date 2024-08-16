@@ -110,7 +110,15 @@ def update_tc_code(task_params:dict, msg_queue:multiprocessing.Queue, lock:multi
     return
 
 
+def E3640_Test():
+    clean_log_files()
+    logger = get_logger("E3640_clone_test")
+    project_id = 2
+    ret = update_code(project_id=project_id, logger=logger)
+    if not ret:
+        logger.error("Clone error.")
+
+
+
 if __name__ == "__main__":
-    test_path = "F:\\Work\\VS_Code\\Test\\GitTest"
-    repo = git.Repo(test_path)
-    repo.index.reset(index=True, working_tree=True)
+    E3640_Test()
