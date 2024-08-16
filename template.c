@@ -45,16 +45,8 @@
  * 
  */
 
-#include "../board/sdk_project_config.h"
-#include "../include/led.h"
-#include "../include/can.h"
-#include "../include/timer.h"
-#include "../include/uart.h"
 #include "../include/modules_test.h"
 #include "../include/command.h"
-#include "log.h"
-/* Added by Lichg 20240424 */
-#include "osal.h"
 #include "../include/task.h"
 #include "../modules/modules.h"
 #include "../include/board.h"
@@ -63,16 +55,6 @@
 #include <string.h>
 
 volatile int g_exitCode = 0;
-
-static inline void ProcByCmd(void *param)
-{
-    doMsgCommand();
-}
-
-static inline void ProcBySeq(void)
-{
-    doModuleCaseBySeq();
-}
 
 /**
  * @brief The main function for the project.
@@ -89,10 +71,8 @@ int demos_main(void)
 
     /* Main loop */
     while (0 == g_exitCode) {
-        // ProcBySeq();
-        ProcByCmd(NULL);
+        %proc_function%;
     }
-
-    Board_Deinit();
+    
     return 0;
 }
