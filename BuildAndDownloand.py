@@ -96,7 +96,8 @@ def backup_target_file(target_file_path:str, logger:logging.Logger):
                         + datetime.now().strftime("_%Y-%m-%d-%H-%M-%S")
                         + ".c")
     logger.info("Store target file to:{}".format(backup_file_name))
-    os.rename(target_file_path, backup_file_name)
+    # os.rename(target_file_path, backup_file_name)
+    shutil.copy(target_file_path, backup_file_name)
     return
 
 
@@ -116,6 +117,9 @@ def main_file_generate(project_id:int, module_id:str, sub_id:str, logger:logging
     if target_file_path and os.path.exists(target_file_path):
         logger.info("Target file already exists, need backup the old file.")
         backup_target_file(target_file_path, logger)
+    else:
+        logger.error("Cound not find target file.")
+        return False
 
     template_file_path = get_template_file_path(logger)
     if not template_file_path:
@@ -694,5 +698,12 @@ def E360_test():
         return
 
 
+def file_copy_test():
+    target_file_path = "F:\\Work\\VS_Code\\Python\\AutoCompileAndDownload\\template.c"
+    logger = get_logger("copy_test")
+    backup_target_file(target_file_path, logger)
+
+
 if __name__ == "__main__":
-    E360_test()
+    # E360_test()
+    file_copy_test()
