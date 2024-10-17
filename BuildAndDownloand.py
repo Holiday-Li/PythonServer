@@ -158,6 +158,7 @@ def main_file_generate(project_id:int, module_id:str, sub_id:str, logger:logging
     with open(work_file_path, "w") as f:
         f.writelines(new_lines)
 
+    os.remove(target_file_path)
     os.rename(work_file_path, target_file_path)
     logger.info("Target file generate done, path: {}".format(target_file_path))
     return True
