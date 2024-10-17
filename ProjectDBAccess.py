@@ -18,18 +18,41 @@ def connect_database(logger:logging.Logger, mdb_file_name:str)->tuple[pyodbc.Con
         return None, None
 
     driver = "{Microsoft Access Driver (*.mdb, *.accdb)}"
-    conn = pyodbc.connect(f"driver={driver};DBQ={mdb_file}")
-    cursor = conn.cursor()
+    try:
+        conn = pyodbc.connect(f"driver={driver};DBQ={mdb_file}")
+    except:
+        logger.error("Database connect error.")
+        return None, None
+    try:
+        cursor = conn.cursor()
+    except:
+        logger.error("Get cursor error.")
+        conn.close()
+        return None, None
     return conn, cursor
 
 
-def disconnect_database(conn:pyodbc.Connection, cursor:pyodbc.Cursor):
-    cursor.close()
-    conn.close()
+def disconnect_database(conn:pyodbc.Connection, cursor:pyodbc.Cursor, logger:logging.Logger):
+    cursor_close = False
+    while True:
+        if cursor_close == False:
+            try:
+                cursor.close()
+            except:
+                logger.error("Cursor close error.")
+                continue
+            cursor_close = True
+        try:
+            conn.close()
+        except:
+            logger.error("Conn close error.")
+            continue
+        break
+    logger.info("Disconnect database connection.")
     return
 
 
-def get_count_by_name(project_name:str, logger:logging.Logger, mdb_file_name="caseManage .mdb")->int:
+def get_count_by_name(project_name:str, logger:logging.Logger, mdb_file_name="caseManage.mdb")->int:
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
@@ -40,23 +63,23 @@ def get_count_by_name(project_name:str, logger:logging.Logger, mdb_file_name="ca
         cursor.execute(sql)
     except:
         logger.error("Get project name error, SQL:{}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return None
 
     data = cursor.fetchone()
     if len(data) != 1:
         logger.error("Get project name error, get item: {}".format(len(data)))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return None
 
     count = data[0]
-    disconnect_database(conn=conn, cursor=cursor)
+    disconnect_database(conn=conn, cursor=cursor, logger=logger)
     return count
 
 
 #-------------------------------------------- Test function ------------------------------------------------#
 def add_new_colum(table_name:str, colum_name:str, colum_type:str,
-                  logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->bool:
+                  logger:logging.Logger, mdb_file_name:str="caseManage.mdb")->bool:
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
@@ -68,14 +91,14 @@ def add_new_colum(table_name:str, colum_name:str, colum_type:str,
         conn.commit()
     except:
         logger.error("SQL execute error. SQL:{}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return False
 
-    disconnect_database(conn=conn, cursor=cursor)
+    disconnect_database(conn=conn, cursor=cursor, logger=logger)
     return True
 
 
-def get_colums_info(table_name:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb") -> list:
+def get_colums_info(table_name:str, logger:logging.Logger, mdb_file_name:str="caseManage.mdb") -> list:
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
@@ -85,7 +108,7 @@ def get_colums_info(table_name:str, logger:logging.Logger, mdb_file_name:str="ca
         columns = cursor.columns(table=table_name)
     except:
         logger.error("Get columns error.")
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return None
 
     columns_info = []
@@ -97,7 +120,7 @@ def get_colums_info(table_name:str, logger:logging.Logger, mdb_file_name:str="ca
         # columns_name.append(column.column_name)
         columns_info.append(column_info)
 
-    disconnect_database(conn=conn, cursor=cursor)
+    disconnect_database(conn=conn, cursor=cursor, logger=logger)
     return columns_info
 
 
@@ -110,7 +133,7 @@ def show_table_column(table_name:str, logger:logging.Logger):
 
 
 '''
-def add_new_line_for_project_info(mdb_file_name:str="caseManage .mdb"):
+def add_new_line_for_project_info(mdb_file_name:str="caseManage.mdb"):
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
@@ -140,7 +163,7 @@ def add_item_for_project_info(project_id:int,
                               source_path:str,
                               ide_path:str,
                               logger:logging.Logger,
-                              mdb_file_name:str="caseManage .mdb"):
+                              mdb_file_name:str="caseManage.mdb"):
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
@@ -153,7 +176,7 @@ def add_item_for_project_info(project_id:int,
         rows = cursor.fetchall()
     except:
         logger.error("SQL execution error, SQL={}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return False
     if len(rows) != 0:
         logger.info("Item already exists, no need add, project_id={}".format(project_id))
@@ -169,15 +192,15 @@ def add_item_for_project_info(project_id:int,
         conn.commit()
     except:
         logger.error("SQL execute error.")
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return False
 
-    disconnect_database(conn=conn, cursor=cursor)
+    disconnect_database(conn=conn, cursor=cursor, logger=logger)
     return True
 
 
 def del_item_from_table(project_id:int, table_name:str, logger:logging.Logger,
-                        mdb_file_name="caseManage .mdb")->bool:
+                        mdb_file_name="caseManage.mdb")->bool:
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
@@ -189,14 +212,14 @@ def del_item_from_table(project_id:int, table_name:str, logger:logging.Logger,
         conn.commit()
     except:
         logger.error("SQL execute error, SQL:{}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return False
 
-    disconnect_database(conn=conn, cursor=cursor)
+    disconnect_database(conn=conn, cursor=cursor, logger=logger)
     return True
 
 
-def show_table_info_table(table_name:str, mdb_file_name:str="caseManage .mdb"):
+def show_table_info_table(table_name:str, mdb_file_name:str="caseManage.mdb"):
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
@@ -207,14 +230,14 @@ def show_table_info_table(table_name:str, mdb_file_name:str="caseManage .mdb"):
         cursor.execute(sql)
     except:
         logger.error("SQL executes error, SQL:{}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return False
 
     rows = cursor.fetchall()
     for row in rows:
         print(row)
 
-    disconnect_database(conn=conn, cursor=cursor)
+    disconnect_database(conn=conn, cursor=cursor, logger=logger)
     return True
 
 
@@ -224,7 +247,7 @@ def update_item_value(table_name:str,
                       target_key:str,
                       target_value:str,
                       logger:logging.Logger,
-                      mdb_file_name:str="caseManage .mdb")->bool:
+                      mdb_file_name:str="caseManage.mdb")->bool:
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
@@ -240,15 +263,15 @@ def update_item_value(table_name:str,
         cursor.execute(sql)
     except:
         logger.error("Update code source error, SQL:{}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return False
     conn.commit()
 
-    disconnect_database(conn=conn, cursor=cursor)
+    disconnect_database(conn=conn, cursor=cursor, logger=logger)
     return True
 
 
-def get_item_value(table_name:str, target_key, base_key:str, base_value, logger:logging.Logger, mdb_file_name:str="caseManage .mdb"):
+def get_item_value(table_name:str, target_key, base_key:str, base_value, logger:logging.Logger, mdb_file_name:str="caseManage.mdb"):
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
@@ -263,25 +286,26 @@ def get_item_value(table_name:str, target_key, base_key:str, base_value, logger:
             table_name=table_name, target_key=target_key, base_key=base_key, base_value=base_value
         )
 
+    logger.info("SQL:{}".format(sql))
     try:
         cursor.execute(sql)
     except:
-        logger.error("Get code source error, SQL:{}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return None
 
     rows = cursor.fetchall()
     if len(rows) != 1:
         logger.error("Get code source error, get item: {}".format(len(rows)))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return None
 
     target_value = rows[0][0]
-    disconnect_database(conn=conn, cursor=cursor)
+    disconnect_database(conn=conn, cursor=cursor, logger=logger)
+    logger.info("TargetValue: {}".format(target_value))
     return target_value
 
 
-def clean_item_value(table_name:str, target_key:str, base_key:str, base_value, logger:logging.Logger, mdb_file_name:str="caseManage .mdb"):
+def clean_item_value(table_name:str, target_key:str, base_key:str, base_value, logger:logging.Logger, mdb_file_name:str="caseManage.mdb"):
     conn, cursor = connect_database(logger=logger, mdb_file_name=mdb_file_name)
     if not conn or not cursor:
         logger.error("Connect database error")
@@ -299,30 +323,32 @@ def clean_item_value(table_name:str, target_key:str, base_key:str, base_value, l
         cursor.execute(sql)
     except:
         logger.error("Update code source error, SQL:{}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return False
     conn.commit()
 
-    disconnect_database(conn=conn, cursor=cursor)
+    disconnect_database(conn=conn, cursor=cursor, logger=logger)
     return True
 
 
-def get_project_id_by_name(project_name:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+def get_project_id_by_name(project_name:str, logger:logging.Logger, mdb_file_name:str="caseManage.mdb")->str:
     table_name = "ProjectInformation"
     base_key = "ProjectName"
     target_key = "ID"
     return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_name, logger=logger)
 
 
-def update_item_by_project_id(project_id:str, item_key:str, item_value:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->bool:
+def update_item_by_project_id(project_id:str, item_key:str, item_value:str, logger:logging.Logger, mdb_file_name:str="caseManage.mdb")->bool:
     table_name = "ProjectInformation"
     base_key = 'ID'
+    project_id = int(project_id)
     return update_item_value(table_name=table_name, base_key=base_key, base_value=project_id,
                              target_key=item_key, target_value=item_value, logger=logger)
 
 
 def update_item_by_project_name(project_name:str, item_key:str, item_value:str, logger:logging.Logger)->bool:
     project_id = get_project_id_by_name(project_name=project_name, logger=logger)
+    project_id = int(project_id)
     return update_item_by_project_id(project_id=project_id, item_key=item_key, item_value=item_value, logger=logger)
 
 
@@ -332,40 +358,43 @@ def update_code_source(project_id:int, code_source:str, logger:logging.Logger)->
 
 def update_compile_config_by_project_name(project_name:str, compile_cfg:str, logger:logging.Logger):
     project_id = get_project_id_by_name(project_name=project_name, logger=logger)
+    project_id = int(project_id)
     return update_item_by_project_id(project_id=project_id, item_key="CompileCfg", item_value=compile_cfg, logger=logger)
 
 
 def update_test_type_by_prject_name(project_name:str, test_type:str, logger:logging.Logger):
     project_id = get_project_id_by_name(project_name=project_name, logger=logger)
+    project_id = int(project_id)
     return update_item_by_project_id(project_id=project_id, item_key="TestType", item_value=test_type, logger=logger)
 
 
-def get_test_type(project_id:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb"):
+def get_test_type(project_id:str, logger:logging.Logger, mdb_file_name:str="caseManage.mdb"):
     table_name = "ProjectInformation"
     base_key = "ID"
     target_key = "TestType"
     return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
 
-def get_compile_cfg(project_id:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb"):
+def get_compile_cfg(project_id:str, logger:logging.Logger, mdb_file_name:str="caseManage.mdb"):
     table_name = "ProjectInformation"
     base_key = "ID"
     target_key = "CompileCfg"
+    project_id = int(project_id)
     return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
 
 
 def set_code_source(project_id:int, code_source:str, logger:logging.Logger,
-                     mdb_file_name:str="caseManage .mdb")->str:
+                     mdb_file_name:str="caseManage.mdb")->str:
     return update_item_by_project_id(project_id=project_id, item_key="SourcePath", item_value=code_source, logger=logger)
 
 
-def get_code_source(project_id:int, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+def get_code_source(project_id:int, logger:logging.Logger, mdb_file_name:str="caseManage.mdb")->str:
     table_name = "ProjectInformation"
     base_key = "ID"
     target_key = "SourcePath"
     return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
 
 
-def get_project_name(project_id:int, logger:logging.Logger, mdb_file_name="caseManage .mdb")->str:
+def get_project_name(project_id:int, logger:logging.Logger, mdb_file_name="caseManage.mdb")->str:
     table_name = "ProjectInformation"
     base_key = "ID"
     target_key = "ProjectName"
@@ -373,30 +402,32 @@ def get_project_name(project_id:int, logger:logging.Logger, mdb_file_name="caseM
 
 
 def set_project_path(project_id:int, project_path:str, logger:logging.Logger,
-                     mdb_file_name:str="caseManage .mdb")->str:
+                     mdb_file_name:str="caseManage.mdb")->str:
     return update_item_by_project_id(project_id=project_id, item_key="ProjectPath", item_value=project_path, logger=logger)
 
 
-def get_project_path(project_id:int, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+def get_project_path(project_id:int, logger:logging.Logger, mdb_file_name:str="caseManage.mdb")->str:
     table_name = "ProjectInformation"
     base_key = "ID"
     target_key = "ProjectPath"
+    project_id = int(project_id)
     return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
 
 
 def set_ide_path(project_id:int, ide_path:str, logger:logging.Logger,
-                 mdb_file_name:str="caseManage .mdb")->str:
+                 mdb_file_name:str="caseManage.mdb")->str:
     return update_item_by_project_id(project_id=project_id, item_key="idePath", item_value=ide_path, logger=logger)
 
 
-def get_ide_path(project_id:str, logger: logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+def get_ide_path(project_id:str, logger: logging.Logger, mdb_file_name:str="caseManage.mdb")->str:
     table_name = "ProjectInformation"
     base_key = "ID"
     target_key = "idePath"
+    project_id = int(project_id)
     return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
 
 
-def get_node_name(project_id:int, module_id:str, sub_id:str, logger:logging.Logger, mdb_file_name:str="caseManage .mdb")->str:
+def get_node_name(project_id:int, module_id:str, sub_id:str, logger:logging.Logger, mdb_file_name:str="caseManage.mdb")->str:
     project_name = get_project_name(project_id=project_id, logger=logger)
     if not project_name:
         logger.error("Get project_name error, project_id={}".format(project_id))
@@ -411,16 +442,16 @@ def get_node_name(project_id:int, module_id:str, sub_id:str, logger:logging.Logg
         cursor.execute(sql)
     except:
         logger.error("Execute SQL error, sql={}".format(sql))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return None
     rows = cursor.fetchall()
     if len(rows) != 1:
         logger.error("Get node name error, get item: {}".format(len(rows)))
-        disconnect_database(conn=conn, cursor=cursor)
+        disconnect_database(conn=conn, cursor=cursor, logger=logger)
         return None
 
     node_name = rows[0][0]
-    disconnect_database(conn=conn, cursor=cursor)
+    disconnect_database(conn=conn, cursor=cursor, logger=logger)
     return node_name
 
 
@@ -474,21 +505,36 @@ def debug_get_test_node_name(logger):
 if __name__ == "__main__":
     clean_log_files()
     logger = get_logger("DBA_Log")
-    # debug_get_test_node_name(logger)
-    # debug_add_test_type_for_project_info(logger)
-    #clean_item_value(table_name="ProjectInformation", target_key="ProjectPath", base_key="ID", base_value=2, logger=logger)
-    set_project_path(2, "", logger)
-    debug_show_table_info(logger=logger)
+    debug_show_table_info(logger)
+    conn_list = []
+    for i in range(10000):
+        try:
+            conn, cursor = connect_database(logger, "caseManage.mdb")
+        except:
+            logger.error("Connect error, break process, time = {}".format(i))
+            break
+        conn_list.append({"conn":conn, "cursor":cursor})
 
-    
+        table_name = "ProjectInformation"
+        base_key = "ID"
+        target_key = "ProjectName"
+        sql = "SELECT {target_key} FROM {table_name} WHERE {base_key}={base_value}".format(
+            table_name=table_name, target_key=target_key, base_key=base_key, base_value=2
+        )
+        logger.info("SQL: {}".format(sql))
+        try:
+            conn_list[i]["cursor"].execute(sql)
+        except:
+            logger.error("Execute SQL error, time={}".format(i))
+            continue
 
-    # add_new_colum(table_name=table_name, colum_name="CompileCfg", colum_type="varchar(32)", logger=logger)
-    # show_table_column(table_name=table_name, logger=logger)
-    # update_compile_config_by_project_name(project_name="EAM2011", compile_cfg="Debug", logger=logger)
-    # update_compile_config_by_project_name(project_name="E3640", compile_cfg="FlashDebug", logger=logger)
-    # show_table_info_table(table_name=table_name)
-    # count = get_count_by_name(project_name="GitTest", logger=logger)
-    # print("Rows Type: {}".format(type(count)))
-    # print("Rows:\n\t{}".format(count))
-    # node_name = get_node_name(project_id=1, module_id="MODULE_ID_CMU", sub_id="0x0001", logger=logger)
-    # print("node_name = {}".format(node_name))
+        rows = conn_list[i]["cursor"].fetchall()
+        if len(rows) != 1:
+            logger.error("Get code source error, time: {}".format(i))
+            continue
+
+        target_value = rows[0][0]
+        logger.info("ProjectName: {}".format(target_value))
+        conn_list[i]["cursor"].close()
+        conn_list[i]["conn"].close()
+        print("{} connect".format(i))
