@@ -41,7 +41,7 @@ def get_commit_id(project_path:str, logger:logging.Logger)->str:
 def update_code(project_id:int, logger:logging.Logger, commit_id:str=None)->bool:
     project_path = get_project_path(project_id=project_id, logger=logger)
     logger.info("project_path:{}".format(project_path))
-    if not project_path:
+    if project_path:
         logger.info("ProjectPath exists:{}".format(os.path.exists(project_path)))
     # If the project_path is "",
     # it means that the code has not been cloned from the remote repo,
