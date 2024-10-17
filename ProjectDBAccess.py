@@ -372,6 +372,7 @@ def get_test_type(project_id:str, logger:logging.Logger, mdb_file_name:str="case
     table_name = "ProjectInformation"
     base_key = "ID"
     target_key = "TestType"
+    project_id = int(project_id)
     return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
 
 def get_compile_cfg(project_id:str, logger:logging.Logger, mdb_file_name:str="caseManage.mdb"):
@@ -391,6 +392,7 @@ def get_code_source(project_id:int, logger:logging.Logger, mdb_file_name:str="ca
     table_name = "ProjectInformation"
     base_key = "ID"
     target_key = "SourcePath"
+    project_id = int(project_id)
     return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
 
 
@@ -398,6 +400,7 @@ def get_project_name(project_id:int, logger:logging.Logger, mdb_file_name="caseM
     table_name = "ProjectInformation"
     base_key = "ID"
     target_key = "ProjectName"
+    project_id = int(project_id)
     return get_item_value(table_name=table_name, target_key=target_key, base_key=base_key, base_value=project_id, logger=logger)
 
 
